@@ -35,6 +35,7 @@ Perimeter walls are generated around everything walkable.
 | Right-click empty space / Enter | Finish drawing; Backspace removes last draft point; Esc cancels |
 | Path tool: click an existing path point | Start from / snap to it: from an end point it **extends** that path, elsewhere it starts a **branch** |
 | B | Branch (or extend) from the selected path point |
+| "Endpoint depth" field | With a path's first or last point selected: how far the floor runs past that end (0 = stop at the point). Separate per end and independent of width. |
 | C / "Curved" checkbox | Toggle Bezier curve on the selected point (or whole path); drag the pink handles to shape it |
 | Del / Shift+Del | Delete point / whole shape |
 

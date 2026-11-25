@@ -70,6 +70,8 @@ public static class MapBuilder
             var samples = PathSampler.Flatten(path);
             if (samples.Count < 2) continue;
             float hw = MathF.Max(8f, path.Width * 0.5f);
+            float startDepth = MathF.Max(0f, path.StartDepth ?? hw);
+            float endDepth = MathF.Max(0f, path.EndDepth ?? hw);
             int m = samples.Count;
             Vector2 P(int i) => new(samples[i].P.X, samples[i].P.Y);
             float Z(int i) => samples[i].P.Z;
@@ -117,9 +119,9 @@ public static class MapBuilder
                 // Free flat ends are extended by half the width (a square end), so dead ends and T-junctions
                 // overlap neatly. Extending the line itself (rather than adding a separate cap shape) keeps the
                 // end in one piece with the corridor, so there's no seam or wedge gap between them.
-                if (from == 0 && EndDir(0, +1) is var d0 && d0 != Vector2.Zero) line.Add(P(0) + d0 * hw);
+                if (from == 0 && startDepth > 0.5f && EndDir(0, +1) is var d0 && d0 != Vector2.Zero) line.Add(P(0) + d0 * startDepth);
                 for (int q = from; q <= to; q++) line.Add(P(q));
-                if (to == m - 1 && EndDir(m - 1, -1) is var d1 && d1 != Vector2.Zero) line.Add(P(m - 1) + d1 * hw);
+                if (to == m - 1 && endDepth > 0.5f && EndDir(m - 1, -1) is var d1 && d1 != Vector2.Zero) line.Add(P(m - 1) + d1 * endDepth);
                 foreach (var poly in Poly2.ThickenPolyline(line, hw)) AddLevel(Z(from), poly);
             }
 

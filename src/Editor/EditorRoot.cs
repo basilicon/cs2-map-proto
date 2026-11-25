@@ -841,6 +841,7 @@ public partial class EditorRoot : Node3D
         Ui.Silently(() =>
         {
             Ui.PathWidth.Editable = Ui.RegionHeight.Editable = Ui.PointZ.Editable = Ui.SpawnYaw.Editable = false;
+            Ui.EndpointDepth.Editable = false;
             Ui.RegionKind.Disabled = true;
             Ui.SmoothPoint.Disabled = true;
             Ui.SmoothPoint.ButtonPressed = false;
@@ -856,6 +857,11 @@ public partial class EditorRoot : Node3D
                     Ui.PointZ.Value = p.Points[pi].Z; Ui.PointZ.Editable = true;
                     Ui.SmoothPoint.ButtonPressed = Selected.IsWhole ? p.AnyCurved() : p.IsCurved(pi);
                     Ui.SmoothPoint.Disabled = false;
+                    if (!Selected.IsWhole && Selected.Type == HandleType.PathPoint && IsEndpoint(p, pi))
+                    {
+                        Ui.EndpointDepth.Value = (pi == 0 ? p.StartDepth : p.EndDepth) ?? p.Width * 0.5f;
+                        Ui.EndpointDepth.Editable = true;
+                    }
                     break;
                 case HandleType.RegionPoint:
                     var r = Doc.Regions[Selected.Shape];
@@ -879,6 +885,8 @@ public partial class EditorRoot : Node3D
             }
         });
     }
+
+    static bool IsEndpoint(PathShape p, int i) => i == 0 || i == p.Points.Count - 1;
 
     void ApplyPropertyEdits()
     {
@@ -906,6 +914,11 @@ public partial class EditorRoot : Node3D
                 {
                     var pt = p.Points[Selected.Point];
                     p.Points[Selected.Point] = new Vec3(pt.X, pt.Y, newZ);
+                    if (Selected.Type == HandleType.PathPoint && IsEndpoint(p, Selected.Point))
+                    {
+                        if (Selected.Point == 0) p.StartDepth = (float)Ui.EndpointDepth.Value;
+                        else p.EndDepth = (float)Ui.EndpointDepth.Value;
+                    }
                     if (Ui.SmoothPoint.ButtonPressed != p.IsCurved(Selected.Point))
                         p.SetTangent(Selected.Point, Ui.SmoothPoint.ButtonPressed ? p.AutoTangent(Selected.Point) : default);
                 }

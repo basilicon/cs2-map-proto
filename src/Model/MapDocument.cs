@@ -29,8 +29,15 @@ public sealed class PathShape
     /// Zero = sharp corner. Kept parallel to Points; use the helpers below to edit both together.</summary>
     public List<Vec3> Tangents { get; set; } = new();
 
+    /// <summary>How far the floor extends past the first / last point when that end is a free, flat end
+    /// (0 = stop exactly at the point). Independent of Width; older files default to half the width.</summary>
+    public float? StartDepth { get; set; }
+    public float? EndDepth { get; set; }
+
     public void Normalize()
     {
+        StartDepth ??= Width * 0.5f;
+        EndDepth ??= Width * 0.5f;
         while (Tangents.Count < Points.Count) Tangents.Add(default);
         if (Tangents.Count > Points.Count) Tangents.RemoveRange(Points.Count, Tangents.Count - Points.Count);
     }
@@ -61,6 +68,7 @@ public sealed class PathShape
         Normalize();
         Points.Reverse();
         Tangents.Reverse();
+        (StartDepth, EndDepth) = (EndDepth, StartDepth);
         for (int i = 0; i < Tangents.Count; i++) Tangents[i] = new Vec3(-Tangents[i].X, -Tangents[i].Y, 0);
     }
 }

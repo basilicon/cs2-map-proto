@@ -47,7 +47,7 @@ script = ExtResource("4_over")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("NewButton", "OpenButton", "SaveButton", "ExportButton", "OpenDialog", "SaveDialog", "ExportDialog", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ViewToggle", "WorkElevation", "GridSize", "SelectionLabel", "PathWidth", "SmoothPoint","RegionKind", "PointZ", "RegionHeight", "SpawnYaw", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Warnings", "Status")]
+[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("NewButton", "OpenButton", "SaveButton", "ExportButton", "OpenDialog", "SaveDialog", "ExportDialog", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ViewToggle", "WorkElevation", "GridSize", "SelectionLabel", "PathWidth", "SmoothPoint", "EndpointDepth", "RegionKind", "PointZ", "RegionHeight", "SpawnYaw", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Warnings", "Status")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -76,6 +76,7 @@ GridSize = NodePath("Side/Scroll/VBox/Grid/GridSize")
 SelectionLabel = NodePath("Side/Scroll/VBox/SelectionLabel")
 PathWidth = NodePath("Side/Scroll/VBox/Grid/PathWidth")
 SmoothPoint = NodePath("Side/Scroll/VBox/Grid/SmoothPoint")
+EndpointDepth = NodePath("Side/Scroll/VBox/Grid/EndpointDepth")
 RegionKind = NodePath("Side/Scroll/VBox/Grid/RegionKind")
 PointZ = NodePath("Side/Scroll/VBox/Grid/PointZ")
 RegionHeight = NodePath("Side/Scroll/VBox/Grid/RegionHeight")
@@ -250,6 +251,19 @@ min_value = 32.0
 max_value = 2048.0
 step = 8.0
 value = 192.0
+allow_greater = true
+suffix = "u"
+
+[node name="EndpointDepthLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+text = "Endpoint depth"
+
+[node name="EndpointDepth" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "How far the floor extends past this end point (first or last point of a path). 0 = stop at the point. Independent of path width."
+max_value = 2048.0
+step = 8.0
 allow_greater = true
 suffix = "u"
 
