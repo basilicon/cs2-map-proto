@@ -200,7 +200,12 @@ public partial class EditorRoot : Node3D
         if (_busy) return;
         ApplySettingsEdits();
         var path = Doc.Export.VmapPath;
-        if (string.IsNullOrWhiteSpace(path)) { Ui.ExportDialog.PopupCentered(new Vector2I(900, 600)); Ui.SetStatus("Choose where to write the .vmap first."); return; }
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            Ui.PromptExportPath(exportAfter: true);
+            Ui.SetStatus("Choose where to write the .vmap: ...\\content\\csgo_addons\\<addon>\\maps\\<name>.vmap");
+            return;
+        }
         RebuildNow();
         _busy = true;
         Ui.SetStatus("Exporting...");
@@ -211,7 +216,10 @@ public partial class EditorRoot : Node3D
             string result = await Task.Run(() =>
             {
                 var msg = VmapExporter.Export(map, path, binary ? Cs2Tools.Tool(path, "dmxconvert.exe") : null);
-                if (compile) msg += " | " + Cs2Tools.Compile(path).summary;
+                if (!Cs2Tools.IsInAddon(path, out _))
+                    msg += " | Note: Hammer/the compiler only see maps in ...\\content\\csgo_addons\\<addon>\\maps\\";
+                else if (compile) msg += " | " + Cs2Tools.Compile(path).summary;
+                else msg += " | Hammer: reopen this file to see it. The game still has the old build until you compile (tick 'Compile after export').";
                 return msg;
             });
             Ui.SetStatus(result);

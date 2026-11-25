@@ -22,6 +22,33 @@ public static class Cs2Tools
         return null;
     }
 
+    /// <summary>content\csgo_addons of a CS2 install that has the Workshop Tools (found via Steam's library list),
+    /// or null. Used as the default folder for the export dialog.</summary>
+    public static string FindAddonsContentDir()
+    {
+        var libraries = new System.Collections.Generic.List<string>();
+        foreach (var steam in new[] { @"C:\Program Files (x86)\Steam", @"C:\Program Files\Steam" })
+        {
+            var vdf = Path.Combine(steam, "steamapps", "libraryfolders.vdf");
+            if (!File.Exists(vdf)) continue;
+            foreach (var line in File.ReadAllLines(vdf))
+            {
+                var parts = line.Trim().Split('"', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 3 && parts[0] == "path") libraries.Add(parts[^1].Replace(@"\\", @"\"));
+            }
+        }
+        string fallback = null;
+        foreach (var lib in libraries)
+        {
+            var root = Path.Combine(lib, "steamapps", "common", "Counter-Strike Global Offensive");
+            var addons = Path.Combine(root, "content", "csgo_addons");
+            if (!Directory.Exists(addons)) continue;
+            if (File.Exists(Path.Combine(root, "game", "bin", "win64", "resourcecompiler.exe"))) return addons;
+            fallback ??= addons;
+        }
+        return fallback;
+    }
+
     public static string Tool(string vmapPath, string exe)
     {
         var bin = FindBinDir(vmapPath);

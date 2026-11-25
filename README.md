@@ -61,7 +61,18 @@ Path points that sit exactly on top of each other (branch junctions, joined ends
 
 ## Export
 
-Set the export target to `...\Counter-Strike Global Offensive\content\csgo_addons\<addon>\maps\<name>.vmap`.
+Set the export target to `...\Counter-Strike Global Offensive\content\csgo_addons\<addon>\maps\<name>.vmap`
+(use the CS2 install that has the Workshop Tools). Clicking **Export .vmap** with no target set opens a file
+picker in that folder and exports as soon as you choose a file.
+
+There are two files per map, and they update separately:
+
+| File | Who reads it | Updated by |
+|---|---|---|
+| `content\csgo_addons\<addon>\maps\<name>.vmap` | Hammer | Every export. Reopen it in Hammer to see changes (Hammer doesn't reload open files). |
+| `game\csgo_addons\<addon>\maps\<name>.vpk` | The game (`map <name>`) | Only a compile: tick **Compile after export**, or build the map in Hammer. |
+
+Saving in Hammer overwrites the `.vmap`; the next export from this tool overwrites Hammer's edits.
 
 - The `.vmap` is written as text DMX (keyvalues2). Valve's `dmxconvert` and `resourcecompiler` both accept it.
 - **Convert to binary** runs CS2's `dmxconvert.exe` so the file matches what Hammer saves itself.

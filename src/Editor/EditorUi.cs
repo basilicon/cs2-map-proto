@@ -101,11 +101,19 @@ public partial class EditorUi : Control
         OpenButton.Pressed += () => OpenDialog.PopupCentered(new Vector2I(900, 600));
         SaveButton.Pressed += () => SaveDialog.PopupCentered(new Vector2I(900, 600));
         ExportButton.Pressed += () => ExportRequested?.Invoke();
-        BrowseVmap.Pressed += () => ExportDialog.PopupCentered(new Vector2I(900, 600));
+        BrowseVmap.Pressed += () => PromptExportPath(exportAfter: false);
         ViewToggle.Pressed += () => ViewToggled?.Invoke();
         OpenDialog.FileSelected += p => OpenChosen?.Invoke(p);
         SaveDialog.FileSelected += p => SaveChosen?.Invoke(p);
-        ExportDialog.FileSelected += p => { VmapPath.Text = p; SettingsEdited?.Invoke(); };
+        ExportDialog.FileSelected += p =>
+        {
+            if (!p.EndsWith(".vmap", StringComparison.OrdinalIgnoreCase)) p += ".vmap";
+            VmapPath.Text = p;
+            SettingsEdited?.Invoke();
+            // Picking a file from the Export button exports straight away (no second click needed).
+            if (_exportAfterPick) { _exportAfterPick = false; ExportRequested?.Invoke(); }
+        };
+        ExportDialog.Canceled += () => _exportAfterPick = false;
 
         foreach (var s in new[] { PathWidth, EndpointDepth, PointZ, RegionHeight, SpawnYaw })
             s.ValueChanged += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
@@ -131,6 +139,20 @@ public partial class EditorUi : Control
         CompileAfter.Toggled += _ => { if (!_silent) SettingsEdited?.Invoke(); };
         VmapPath.TextSubmitted += _ => SettingsEdited?.Invoke();
         VmapPath.FocusExited += () => SettingsEdited?.Invoke();
+    }
+
+    bool _exportAfterPick;
+
+    /// <summary>Opens the .vmap save dialog, starting in the current target's folder or, if none is set, in
+    /// CS2's content\csgo_addons folder. With exportAfter, choosing a file also runs the export.</summary>
+    public void PromptExportPath(bool exportAfter)
+    {
+        _exportAfterPick = exportAfter;
+        var current = VmapPath.Text.Trim();
+        string dir = !string.IsNullOrEmpty(current) ? System.IO.Path.GetDirectoryName(current) : Export.Cs2Tools.FindAddonsContentDir();
+        if (!string.IsNullOrEmpty(dir) && System.IO.Directory.Exists(dir)) ExportDialog.CurrentDir = dir;
+        ExportDialog.CurrentFile = !string.IsNullOrEmpty(current) ? System.IO.Path.GetFileName(current) : "proto.vmap";
+        ExportDialog.PopupCentered(new Vector2I(900, 600));
     }
 
     /// <summary>Run UI updates without echoing them back as user edits.</summary>
