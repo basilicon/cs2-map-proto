@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://src/Editor/OverlayRenderer.cs" id="4_over"]
 [ext_resource type="Script" path="res://src/Editor/EditorUi.cs" id="5_ui"]
 [ext_resource type="Shader" path="res://shaders/preview.gdshader" id="6_shader"]
+[ext_resource type="Script" path="res://src/Editor/CurveEditor.cs" id="7_curve"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -47,7 +48,7 @@ script = ExtResource("4_over")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("NewButton", "OpenButton", "SaveButton", "ExportButton", "OpenDialog", "SaveDialog", "ExportDialog", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ViewToggle", "WorkElevation", "GridSize", "SelectionLabel", "PathWidth", "SmoothPoint", "EndpointDepth", "RegionKind", "PointZ", "RegionHeight", "SpawnYaw", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Warnings", "Status")]
+[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("NewButton", "OpenButton", "SaveButton", "ExportButton", "OpenDialog", "SaveDialog", "ExportDialog", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ViewToggle", "WorkElevation", "GridSize", "SelectionLabel", "PathWidth", "SmoothPoint", "EndpointDepth", "RegionKind", "PointZ", "RegionHeight", "SpawnYaw", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Warnings", "Status", "ProfilePanel", "ProfileKind", "ProfileEnabled", "ProfileReset", "ProfileEditor")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -90,6 +91,11 @@ ConvertBinary = NodePath("Side/Scroll/VBox/ConvertBinary")
 CompileAfter = NodePath("Side/Scroll/VBox/CompileAfter")
 Warnings = NodePath("Side/Scroll/VBox/Warnings")
 Status = NodePath("StatusBar/Status")
+ProfilePanel = NodePath("Side/Scroll/VBox/ProfilePanel")
+ProfileKind = NodePath("Side/Scroll/VBox/ProfilePanel/ProfileRow/ProfileKind")
+ProfileEnabled = NodePath("Side/Scroll/VBox/ProfilePanel/ProfileRow/ProfileEnabled")
+ProfileReset = NodePath("Side/Scroll/VBox/ProfilePanel/ProfileRow/ProfileReset")
+ProfileEditor = NodePath("Side/Scroll/VBox/ProfilePanel/ProfileEditor")
 
 [node name="TopBar" type="PanelContainer" parent="UI/Root"]
 layout_mode = 1
@@ -361,6 +367,45 @@ min_value = 1.0
 max_value = 256.0
 value = 16.0
 suffix = "u"
+
+[node name="ProfilePanel" type="VBoxContainer" parent="UI/Root/Side/Scroll/VBox"]
+layout_mode = 2
+
+[node name="ProfileHeader" type="Label" parent="UI/Root/Side/Scroll/VBox/ProfilePanel"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.8, 1, 1)
+text = "Path profile (along its length)"
+
+[node name="ProfileRow" type="HBoxContainer" parent="UI/Root/Side/Scroll/VBox/ProfilePanel"]
+layout_mode = 2
+
+[node name="ProfileKind" type="OptionButton" parent="UI/Root/Side/Scroll/VBox/ProfilePanel/ProfileRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Which value the curve below controls along the selected path."
+
+[node name="ProfileEnabled" type="CheckBox" parent="UI/Root/Side/Scroll/VBox/ProfilePanel/ProfileRow"]
+layout_mode = 2
+tooltip_text = "Use this curve. Editing the curve turns it on."
+text = "On"
+
+[node name="ProfileReset" type="Button" parent="UI/Root/Side/Scroll/VBox/ProfilePanel/ProfileRow"]
+layout_mode = 2
+tooltip_text = "Flatten this curve and turn it off."
+text = "Reset"
+
+[node name="ProfileEditor" type="Control" parent="UI/Root/Side/Scroll/VBox/ProfilePanel"]
+custom_minimum_size = Vector2(280, 130)
+layout_mode = 2
+script = ExtResource("7_curve")
+
+[node name="ProfileHint" type="Label" parent="UI/Root/Side/Scroll/VBox/ProfilePanel"]
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.55)
+theme_override_font_sizes/font_size = 12
+text = "Click to add a key, drag to move it, right-click to remove it. Left = path start, right = end."
+autowrap_mode = 3
 
 [node name="ExportHeader" type="Label" parent="UI/Root/Side/Scroll/VBox"]
 layout_mode = 2

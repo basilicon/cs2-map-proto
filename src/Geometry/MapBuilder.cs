@@ -24,6 +24,9 @@ public sealed class BuiltEntity
     public Dictionary<string, string> Properties = new();
 }
 
+/// <summary>A floor edge segment (2D) with its height, half width and wall height at both ends.</summary>
+public readonly record struct WallRef(Vector2 A, Vector2 B, float ZA, float ZB, float HwA, float HwB, float WallA, float WallB);
+
 public sealed class BuiltMap
 {
     public readonly List<BuiltMesh> Meshes = new();
@@ -35,7 +38,7 @@ public sealed class BuiltMap
 /// .vmap exporter both use this output, so what you see is what Hammer gets.</summary>
 public static class MapBuilder
 {
-    const float FlatEpsilon = 0.5f;
+    const float FlatEpsilon = 0.05f;    // level segments interpolate exactly, so any real height change counts as a ramp
     const float SpawnLift = 16f;        // matches Valve's template maps
     const float MinSpawnSpacing = 48f;  // player hull is 32 wide; leave a margin
     const float EndDirSpan = 24f;       // free-end direction is measured over at least this distance
@@ -53,6 +56,7 @@ public static class MapBuilder
         bool steep = false;
         var rampSections = new List<(PathD quad, float zMin, float zMax)>(); // ramp footprint pieces with their height range
         float minZ = float.MaxValue, maxZ = float.MinValue;
+        var wallRefs = new List<WallRef>(); // floor edges that set the height of nearby perimeter walls
 
         void AddLevel(float z, PathD poly)
         {
@@ -70,19 +74,26 @@ public static class MapBuilder
             var samples = PathSampler.Flatten(path);
             if (samples.Count < 2) continue;
             float hw = MathF.Max(8f, path.Width * 0.5f);
+            bool varWidth = path.WidthCurve.Enabled;
+            float HW(int i) => MathF.Max(8f, path.Width * 0.5f * samples[i].WidthScale);
             float startDepth = MathF.Max(0f, path.StartDepth ?? hw);
             float endDepth = MathF.Max(0f, path.EndDepth ?? hw);
             int m = samples.Count;
             Vector2 P(int i) => new(samples[i].P.X, samples[i].P.Y);
             float Z(int i) => samples[i].P.Z;
             bool Flat(int seg) => MathF.Abs(Z(seg + 1) - Z(seg)) < FlatEpsilon;
+            float Wall(int i) => s.WallHeight * samples[i].WallScale;
+            for (int i = 0; i + 1 < m; i++)
+                wallRefs.Add(new WallRef(P(i), P(i + 1), Z(i), Z(i + 1), HW(i), HW(i + 1), Wall(i), Wall(i + 1)));
 
             // Maximal runs of same-kind segments; run [k, j] covers samples k..j+1.
             for (int k = 0; k < m - 1;)
             {
                 bool flat = Flat(k);
                 int j = k;
-                while (j + 1 < m - 1 && Flat(j + 1) == flat) j++;
+                // A flat run must stay level relative to its first sample, not just step to step; otherwise a
+                // gentle slope (e.g. near the ends of an elevation curve) creeps up while being built flat.
+                while (j + 1 < m - 1 && Flat(j + 1) == flat && (!flat || MathF.Abs(Z(j + 2) - Z(k)) < FlatEpsilon)) j++;
                 if (flat) EmitFlatRun(k, j + 1);
                 else EmitRampRun(k, j + 1);
                 k = j + 1;
@@ -95,7 +106,7 @@ public static class MapBuilder
                 var p = P(i);
                 var d0 = Vector2.Normalize(p - P(i - 1)); var d1 = Vector2.Normalize(P(i + 1) - p);
                 if (float.IsNaN(d0.X) || float.IsNaN(d1.X)) continue;
-                var n0 = new Vector2(-d0.Y, d0.X) * hw; var n1 = new Vector2(-d1.Y, d1.X) * hw;
+                var n0 = new Vector2(-d0.Y, d0.X) * HW(i); var n1 = new Vector2(-d1.Y, d1.X) * HW(i);
                 AddLevel(Z(i), Poly2.Triangle(p, p + n0, p + n1));
                 AddLevel(Z(i), Poly2.Triangle(p, p - n0, p - n1));
             }
@@ -116,21 +127,31 @@ public static class MapBuilder
             void EmitFlatRun(int from, int to)
             {
                 var line = new List<Vector2>();
+                var widths = new List<float>();
                 // Free flat ends are extended by half the width (a square end), so dead ends and T-junctions
                 // overlap neatly. Extending the line itself (rather than adding a separate cap shape) keeps the
                 // end in one piece with the corridor, so there's no seam or wedge gap between them.
-                if (from == 0 && startDepth > 0.5f && EndDir(0, +1) is var d0 && d0 != Vector2.Zero) line.Add(P(0) + d0 * startDepth);
-                for (int q = from; q <= to; q++) line.Add(P(q));
-                if (to == m - 1 && endDepth > 0.5f && EndDir(m - 1, -1) is var d1 && d1 != Vector2.Zero) line.Add(P(m - 1) + d1 * endDepth);
-                foreach (var poly in Poly2.ThickenPolyline(line, hw)) AddLevel(Z(from), poly);
+                if (from == 0 && startDepth > 0.5f && EndDir(0, +1) is var d0 && d0 != Vector2.Zero) { line.Add(P(0) + d0 * startDepth); widths.Add(HW(0)); }
+                for (int q = from; q <= to; q++) { line.Add(P(q)); widths.Add(HW(q)); }
+                if (to == m - 1 && endDepth > 0.5f && EndDir(m - 1, -1) is var d1 && d1 != Vector2.Zero) { line.Add(P(m - 1) + d1 * endDepth); widths.Add(HW(m - 1)); }
+                if (!varWidth)
+                {
+                    foreach (var poly in Poly2.ThickenPolyline(line, hw)) AddLevel(Z(from), poly);
+                    return;
+                }
+                // Width varies along the run: union of mitred sections, each with its own end widths.
+                var (left, right) = RibbonEdges(line, widths);
+                for (int q = 0; q + 1 < line.Count; q++)
+                    AddLevel(Z(from), Poly2.Ccw(new[] { right[q], right[q + 1], left[q + 1], left[q] }));
             }
 
             void EmitRampRun(int from, int to)
             {
                 var center = new List<Vector2>();
                 var zs = new List<float>();
-                for (int q = from; q <= to; q++) { center.Add(P(q)); zs.Add(Z(q)); }
-                var (left, right) = RibbonEdges(center, hw);
+                var widths = new List<float>();
+                for (int q = from; q <= to; q++) { center.Add(P(q)); zs.Add(Z(q)); widths.Add(HW(q)); }
+                var (left, right) = RibbonEdges(center, widths);
                 for (int q = 0; q + 1 < center.Count; q++)
                 {
                     var section = Poly2.Ccw(new[] { right[q], right[q + 1], left[q + 1], left[q] });
@@ -146,7 +167,14 @@ public static class MapBuilder
 
         // ---- Floor regions join the level at their elevation.
         foreach (var r in doc.Regions.Where(r => r.Kind == RegionKind.Floor && r.Points.Count >= 3))
+        {
             AddLevel(r.Elevation, Poly2.Ccw(r.Points.Select(p => new Vector2(p.X, p.Y))));
+            for (int i = 0; i < r.Points.Count; i++)
+            {
+                var a = r.Points[i]; var b = r.Points[(i + 1) % r.Points.Count];
+                wallRefs.Add(new WallRef(new Vector2(a.X, a.Y), new Vector2(b.X, b.Y), r.Elevation, r.Elevation, 0, 0, s.WallHeight, s.WallHeight));
+            }
+        }
 
         var pits = doc.Regions.Where(r => r.Kind == RegionKind.Pit && r.Points.Count >= 3).ToList();
 
@@ -197,7 +225,7 @@ public static class MapBuilder
                 map.Meshes.Add(new BuiltMesh { Name = $"pit_bottom_{n}", Kind = MeshKind.PitBottom, Mesh = m });
             }
             if (pit.Height > thick)
-                foreach (var shape in Poly2.ToShapes(Poly2.Difference(outer, poly)))
+                foreach (var shape in Poly2.ToShapes(Poly2.Close(Poly2.Difference(outer, poly))))
                 {
                     var m = new PolyMesh();
                     Prism(m, shape, _ => pit.Elevation - thick, _ => bottom, s.WallMaterial, s.WallMaterial);
@@ -227,14 +255,33 @@ public static class MapBuilder
         {
             // Curves flatten into many tiny segments; a 1u simplification keeps walls light without visible change.
             var all = Clipper.SimplifyPaths(Poly2.Union(footprint), 1.0);
-            var ring = Poly2.Difference(Poly2.Inflate(all, s.WallThickness), all);
+            // Closing merges places where the ring touches itself at a single corner (a pinch), which would
+            // otherwise give vertical edges shared by four faces - not representable in Hammer's mesh format.
+            var ring = Poly2.Close(Poly2.Difference(Poly2.Inflate(all, s.WallThickness), all));
             float wallBottom = minZ - thick;
-            float wallTop = maxZ + s.WallHeight;
+            // Each wall vertex takes its height from the nearest floor edge: that floor's height plus its wall
+            // height (scaled by the path's wall profile). Walls therefore follow ramps and vary along paths.
+            float WallTop(Vector2 p)
+            {
+                float best = float.MaxValue, top = maxZ + s.WallHeight;
+                foreach (var w in wallRefs)
+                {
+                    var ab = w.B - w.A; float len2 = ab.LengthSquared();
+                    float u = len2 < 1e-6f ? 0 : Math.Clamp(Vector2.Dot(p - w.A, ab) / len2, 0f, 1f);
+                    float score = Vector2.Distance(p, w.A + ab * u) - (w.HwA + (w.HwB - w.HwA) * u);
+                    if (score < best)
+                    {
+                        best = score;
+                        top = w.ZA + (w.ZB - w.ZA) * u + w.WallA + (w.WallB - w.WallA) * u;
+                    }
+                }
+                return MathF.Max(top, wallBottom + 1f);
+            }
             n = 0;
             foreach (var shape in Poly2.ToShapes(ring))
             {
                 var m = new PolyMesh();
-                Prism(m, shape, _ => wallTop, _ => wallBottom, s.WallMaterial, s.WallMaterial);
+                Prism(m, shape, WallTop, _ => wallBottom, s.WallMaterial, s.WallMaterial);
                 map.Meshes.Add(new BuiltMesh { Name = $"wall_{n++}", Kind = MeshKind.Wall, Mesh = m });
             }
         }
@@ -289,7 +336,7 @@ public static class MapBuilder
     }
 
     /// <summary>Left/right edges of a centreline offset by hw, with mitred joints (miter clamped to 2x).</summary>
-    static (List<Vector2> left, List<Vector2> right) RibbonEdges(List<Vector2> c, float hw)
+    static (List<Vector2> left, List<Vector2> right) RibbonEdges(List<Vector2> c, List<float> hws)
     {
         var left = new List<Vector2>(c.Count);
         var right = new List<Vector2>(c.Count);
@@ -301,6 +348,7 @@ public static class MapBuilder
         for (int i = 0; i < c.Count; i++)
         {
             Vector2 n;
+            float hw = hws[i];
             float len = hw;
             if (i == 0) n = Normal(0);
             else if (i == c.Count - 1) n = Normal(i - 1);
@@ -368,8 +416,12 @@ public static class MapBuilder
     /// <summary>Extrudes a polygon-with-holes between two height functions into one closed mesh.</summary>
     public static void Prism(PolyMesh mesh, Shape2 shape, Func<Vector2, float> top, Func<Vector2, float> bottom, string capMaterial, string sideMaterial)
     {
-        var faces = Triangulator.ConvexFaces(shape, out var pts);
+        var faces = Triangulator.ConvexFaces(shape, out var pts, out var tris);
         if (faces.Count == 0) return;
+        // A top that isn't level (e.g. walls following ramps) can't use merged n-gons: they wouldn't be planar.
+        float tMin = float.MaxValue, tMax = float.MinValue;
+        foreach (var p in pts) { float t = top(p); tMin = MathF.Min(tMin, t); tMax = MathF.Max(tMax, t); }
+        var topFaces = tMax - tMin > 0.01f ? tris : faces;
 
         var topIdx = new Dictionary<int, int>();
         var botIdx = new Dictionary<int, int>();
@@ -380,11 +432,8 @@ public static class MapBuilder
         foreach (var f in faces)
             for (int i = 0; i < f.Length; i++) edges.Add((f[i], f[(i + 1) % f.Length]));
 
-        foreach (var f in faces)
-        {
-            mesh.AddFace(f.Select(T).ToArray(), capMaterial);
-            mesh.AddFace(f.Reverse().Select(B).ToArray(), capMaterial);
-        }
+        foreach (var f in topFaces) mesh.AddFace(f.Select(T).ToArray(), capMaterial);
+        foreach (var f in faces) mesh.AddFace(f.Reverse().Select(B).ToArray(), capMaterial);
 
         foreach (var (a, b) in edges)
             if (!edges.Contains((b, a)))

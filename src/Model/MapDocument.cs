@@ -34,8 +34,18 @@ public sealed class PathShape
     public float? StartDepth { get; set; }
     public float? EndDepth { get; set; }
 
+    /// <summary>Optional variation along the path's length (t = 0 at the first point, 1 at the last).</summary>
+    public ProfileCurve WidthCurve { get; set; } = ProfileCurve.Flat(1);     // multiplier of Width
+    public ProfileCurve ElevationCurve { get; set; } = ProfileCurve.Flat(0); // offset added to point heights (u)
+    public ProfileCurve WallCurve { get; set; } = ProfileCurve.Flat(1);      // multiplier of the wall height
+
+    public bool AnyProfile => WidthCurve.Enabled || ElevationCurve.Enabled || WallCurve.Enabled;
+
     public void Normalize()
     {
+        WidthCurve ??= ProfileCurve.Flat(1);
+        ElevationCurve ??= ProfileCurve.Flat(0);
+        WallCurve ??= ProfileCurve.Flat(1);
         StartDepth ??= Width * 0.5f;
         EndDepth ??= Width * 0.5f;
         while (Tangents.Count < Points.Count) Tangents.Add(default);

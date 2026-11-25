@@ -38,6 +38,10 @@ public static class Poly2
     public static PathsD Inflate(PathsD polys, double delta) =>
         Clipper.InflatePaths(polys, delta, JoinType.Miter, EndType.Polygon, 2.0, Precision);
 
+    /// <summary>Morphological closing (grow then shrink by r): joins shapes that touch at a point or nearly
+    /// touch, removing pinch vertices, with no visible change elsewhere.</summary>
+    public static PathsD Close(PathsD polys, double r = 0.5) => Inflate(Inflate(polys, r), -r);
+
     /// <summary>Thickens an open polyline into polygons with flat (butt) ends.</summary>
     public static PathsD ThickenPolyline(IEnumerable<Vector2> line, double halfWidth) =>
         Clipper.InflatePaths(new PathsD { ToPath(line) }, halfWidth, JoinType.Miter, EndType.Butt, 2.0, Precision);

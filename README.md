@@ -15,7 +15,22 @@ Open the folder in Godot 4.7.2 mono and press Play (F5). Everything is C#; the o
 | **Pit** | Hole cut from the floor at its elevation. Height = depth of a floor + liner walls below; 0 = bottomless. |
 | **Spawns** | `info_player_terrorist` / `info_player_counterterrorist`. |
 
-Perimeter walls are generated around everything walkable.
+Perimeter walls are generated around everything walkable. Each wall takes its height from the floor next to it
+(floor height + wall height), so walls follow ramps and stay low beside low corridors.
+
+### Path profiles
+
+With a path selected, the **Path profile** panel edits a curve over the path's length (left = first point,
+right = last point). Pick which value it controls:
+
+| Curve | Meaning |
+|---|---|
+| Width | Multiplier of the path width (0.25x-3x) |
+| Elevation | Offset added to the points' heights (-256..256u); a bump turns that stretch into a smooth ramp |
+| Wall height | Multiplier of the wall height (0x = no wall along that stretch) |
+
+Click the graph to add a key, drag keys, right-click a key to remove it. Editing a curve switches it on; the
+checkbox toggles it and Reset flattens it. Curves are saved in the layout file.
 
 ## Controls
 

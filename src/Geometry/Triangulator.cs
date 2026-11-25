@@ -9,8 +9,13 @@ namespace Cs2MapProto.Geometry;
 /// (Hertel–Mehlhorn) so Hammer gets clean n-gon faces instead of a triangle soup.</summary>
 public static class Triangulator
 {
-    public static List<int[]> ConvexFaces(Shape2 shape, out List<Vector2> points)
+    public static List<int[]> ConvexFaces(Shape2 shape, out List<Vector2> points) => ConvexFaces(shape, out points, out _);
+
+    /// <param name="triangles">The triangulation before merging (same vertex indices); use it when the
+    /// faces won't be planar in 3D, e.g. a top surface whose height varies per vertex.</param>
+    public static List<int[]> ConvexFaces(Shape2 shape, out List<Vector2> points, out List<int[]> triangles)
     {
+        triangles = new List<int[]>();
         points = new List<Vector2>();
         var outer = AddLoop(points, RemoveCollinear(shape.Outer));
         var holes = new List<List<int>>();
@@ -22,8 +27,26 @@ public static class Triangulator
         if (outer.Count < 3) return new List<int[]>();
 
         var merged = BridgeHoles(points, outer, holes);
-        var tris = EarClip(points, merged);
-        return MergeConvex(points, tris);
+        triangles = Canonical(points, EarClip(points, merged));
+        return MergeConvex(points, triangles);
+    }
+
+    /// <summary>Bridge vertices are duplicated points; collapse them to one index so bridge edges become shared edges.</summary>
+    static List<int[]> Canonical(List<Vector2> pts, List<int[]> tris)
+    {
+        var canon = new Dictionary<Vector2, int>();
+        var result = new List<int[]>(tris.Count);
+        foreach (var t in tris)
+        {
+            var f = new int[t.Length];
+            for (int k = 0; k < t.Length; k++)
+            {
+                if (!canon.TryGetValue(pts[t[k]], out int c)) { c = t[k]; canon[pts[t[k]]] = c; }
+                f[k] = c;
+            }
+            result.Add(f);
+        }
+        return result;
     }
 
     static List<int> AddLoop(List<Vector2> pts, List<Vector2> loop)

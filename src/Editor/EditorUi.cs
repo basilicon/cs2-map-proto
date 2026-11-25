@@ -40,6 +40,13 @@ public partial class EditorUi : Control
     [Export] public SpinBox RegionHeight { get; set; }
     [Export] public SpinBox SpawnYaw { get; set; }
 
+    [ExportGroup("Path profile")]
+    [Export] public Control ProfilePanel { get; set; }
+    [Export] public OptionButton ProfileKind { get; set; }
+    [Export] public CheckBox ProfileEnabled { get; set; }
+    [Export] public Button ProfileReset { get; set; }
+    [Export] public CurveEditor ProfileEditor { get; set; }
+
     [ExportGroup("Build")]
     [Export] public CheckBox PerimeterWalls { get; set; }
     [Export] public SpinBox WallHeight { get; set; }
@@ -60,6 +67,8 @@ public partial class EditorUi : Control
     public event Action<string> OpenChosen, SaveChosen;
     public event Action PropertiesEdited;   // any selection property control changed
     public event Action SettingsEdited;     // build/export/grid controls changed
+    public event Action ProfileKindChanged, ProfileResetRequested, ProfileEditStarted, ProfileChanged;
+    public event Action<bool> ProfileEnabledToggled;
 
     bool _silent;
     readonly ButtonGroup _toolGroup = new();
@@ -102,6 +111,18 @@ public partial class EditorUi : Control
             s.ValueChanged += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
         RegionKind.ItemSelected += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
         SmoothPoint.Toggled += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
+
+        if (ProfileKind != null && ProfileKind.ItemCount == 0)
+        {
+            ProfileKind.AddItem("Width", 0);
+            ProfileKind.AddItem("Elevation", 1);
+            ProfileKind.AddItem("Wall height", 2);
+        }
+        ProfileKind.ItemSelected += _ => { if (!_silent) ProfileKindChanged?.Invoke(); };
+        ProfileEnabled.Toggled += on => { if (!_silent) ProfileEnabledToggled?.Invoke(on); };
+        ProfileReset.Pressed += () => ProfileResetRequested?.Invoke();
+        ProfileEditor.EditStarted += () => ProfileEditStarted?.Invoke();
+        ProfileEditor.Changed += () => ProfileChanged?.Invoke();
 
         foreach (var s in new[] { WallHeight, FloorThickness, GridSize })
             s.ValueChanged += _ => { if (!_silent) SettingsEdited?.Invoke(); };

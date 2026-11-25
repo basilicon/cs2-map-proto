@@ -77,6 +77,11 @@ public partial class EditorRoot : Node3D
         Ui.PropertiesEdited += ApplyPropertyEdits;
         Ui.SettingsEdited += ApplySettingsEdits;
         Rig.RightClicked += HandleRightClick;
+        Ui.ProfileKindChanged += RefreshProfileUi;
+        Ui.ProfileEditStarted += PushUndo;
+        Ui.ProfileChanged += ApplyProfileEdit;
+        Ui.ProfileEnabledToggled += SetProfileEnabled;
+        Ui.ProfileResetRequested += ResetProfile;
 
         // godot -- --load <layout.json> opens a layout at startup.
         var args = OS.GetCmdlineUserArgs();
@@ -884,9 +889,78 @@ public partial class EditorRoot : Node3D
                     break;
             }
         });
+        RefreshProfileUi();
     }
 
     static bool IsEndpoint(PathShape p, int i) => i == 0 || i == p.Points.Count - 1;
+
+    // ------------------------------------------------------------------ path profile curves
+
+    int ProfileKindIndex => Ui.ProfileKind.Selected < 0 ? 0 : Ui.ProfileKind.Selected;
+
+    ProfileCurve CurrentProfile(PathShape p) => ProfileKindIndex switch
+    {
+        1 => p.ElevationCurve,
+        2 => p.WallCurve,
+        _ => p.WidthCurve,
+    };
+
+    (float min, float max, float def, string unit) ProfileRange() => ProfileKindIndex switch
+    {
+        1 => (-256f, 256f, 0f, "u"),  // elevation offset
+        2 => (0f, 3f, 1f, "x"),       // wall height multiplier (0 = no wall)
+        _ => (0.25f, 3f, 1f, "x"),    // width multiplier
+    };
+
+    void RefreshProfileUi()
+    {
+        int s = SelectedPath;
+        Ui.ProfilePanel.Visible = s >= 0;
+        if (s < 0) return;
+        var curve = CurrentProfile(Doc.Paths[s]);
+        var (min, max, def, unit) = ProfileRange();
+        Ui.Silently(() => Ui.ProfileEnabled.ButtonPressed = curve.Enabled);
+        Ui.ProfileEditor.SetCurve(curve, min, max, def, unit, curve.Enabled);
+    }
+
+    void ApplyProfileEdit()
+    {
+        int s = SelectedPath;
+        if (s < 0) return;
+        var target = CurrentProfile(Doc.Paths[s]);
+        target.Keys = Ui.ProfileEditor.Curve.Clone().Keys;
+        target.Enabled = true; // editing a curve switches it on
+        Ui.Silently(() => Ui.ProfileEnabled.ButtonPressed = true);
+        Ui.ProfileEditor.Active = true;
+        _dirtyGeometry = true;
+    }
+
+    void SetProfileEnabled(bool on)
+    {
+        int s = SelectedPath;
+        if (s < 0) return;
+        PushUndo();
+        CurrentProfile(Doc.Paths[s]).Enabled = on;
+        _dirtyGeometry = true;
+        RefreshProfileUi();
+    }
+
+    void ResetProfile()
+    {
+        int s = SelectedPath;
+        if (s < 0) return;
+        PushUndo();
+        var p = Doc.Paths[s];
+        switch (ProfileKindIndex)
+        {
+            case 1: p.ElevationCurve = ProfileCurve.Flat(0); break;
+            case 2: p.WallCurve = ProfileCurve.Flat(1); break;
+            default: p.WidthCurve = ProfileCurve.Flat(1); break;
+        }
+        _dirtyGeometry = true;
+        RefreshProfileUi();
+        Ui.SetStatus("Profile curve reset");
+    }
 
     void ApplyPropertyEdits()
     {
@@ -989,7 +1063,12 @@ public partial class EditorRoot : Node3D
             }
             int sp = Array.IndexOf(args, "--select-path");
             if (sp >= 0 && sp + 1 < args.Length && int.TryParse(args[sp + 1], out int pathIdx) && pathIdx < Doc.Paths.Count)
+            {
                 Selected = Handle.WholePath(pathIdx);
+                int pk = Array.IndexOf(args, "--profile");
+                if (pk >= 0 && pk + 1 < args.Length && int.TryParse(args[pk + 1], out int kind)) Ui.ProfileKind.Select(kind);
+                RefreshSelectionUi();
+            }
         }
         if (_frames == 30)
         {
