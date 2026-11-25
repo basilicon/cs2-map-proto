@@ -1,0 +1,413 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/Editor/EditorRoot.cs" id="1_root"]
+[ext_resource type="Script" path="res://src/Editor/CameraRig.cs" id="2_rig"]
+[ext_resource type="Script" path="res://src/Editor/PreviewRenderer.cs" id="3_prev"]
+[ext_resource type="Script" path="res://src/Editor/OverlayRenderer.cs" id="4_over"]
+[ext_resource type="Script" path="res://src/Editor/EditorUi.cs" id="5_ui"]
+[ext_resource type="Shader" path="res://shaders/preview.gdshader" id="6_shader"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.11, 0.12, 0.14, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.62, 0.66, 0.75, 1)
+ambient_light_energy = 0.55
+tonemap_mode = 2
+
+[node name="Main" type="Node3D" node_paths=PackedStringArray("Ui", "Rig", "Preview", "Overlay")]
+script = ExtResource("1_root")
+Ui = NodePath("UI/Root")
+Rig = NodePath("CameraRig")
+Preview = NodePath("Preview")
+Overlay = NodePath("Overlay")
+
+[node name="CameraRig" type="Node3D" parent="." node_paths=PackedStringArray("Camera")]
+script = ExtResource("2_rig")
+Camera = NodePath("Camera3D")
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+current = true
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.81915, 0, -0.57358, -0.46985, 0.57358, -0.67101, 0.32899, 0.81915, 0.46985, 0, 0, 0)
+light_energy = 1.1
+shadow_enabled = true
+directional_shadow_max_distance = 16000.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Preview" type="Node3D" parent="."]
+script = ExtResource("3_prev")
+PreviewShader = ExtResource("6_shader")
+
+[node name="Overlay" type="Node3D" parent="."]
+script = ExtResource("4_over")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("NewButton", "OpenButton", "SaveButton", "ExportButton", "OpenDialog", "SaveDialog", "ExportDialog", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ViewToggle", "WorkElevation", "GridSize", "SelectionLabel", "PathWidth", "RegionKind", "PointZ", "RegionHeight", "SpawnYaw", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Warnings", "Status")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_ui")
+NewButton = NodePath("TopBar/HBox/New")
+OpenButton = NodePath("TopBar/HBox/Open")
+SaveButton = NodePath("TopBar/HBox/Save")
+ExportButton = NodePath("TopBar/HBox/Export")
+OpenDialog = NodePath("OpenDialog")
+SaveDialog = NodePath("SaveDialog")
+ExportDialog = NodePath("ExportDialog")
+SelectTool = NodePath("TopBar/HBox/Select")
+PathTool = NodePath("TopBar/HBox/Path")
+FloorTool = NodePath("TopBar/HBox/Floor")
+ObstacleTool = NodePath("TopBar/HBox/Obstacle")
+PitTool = NodePath("TopBar/HBox/Pit")
+SpawnTTool = NodePath("TopBar/HBox/SpawnT")
+SpawnCTTool = NodePath("TopBar/HBox/SpawnCT")
+ViewToggle = NodePath("TopBar/HBox/View")
+WorkElevation = NodePath("Side/Scroll/VBox/Grid/WorkElevation")
+GridSize = NodePath("Side/Scroll/VBox/Grid/GridSize")
+SelectionLabel = NodePath("Side/Scroll/VBox/SelectionLabel")
+PathWidth = NodePath("Side/Scroll/VBox/Grid/PathWidth")
+RegionKind = NodePath("Side/Scroll/VBox/Grid/RegionKind")
+PointZ = NodePath("Side/Scroll/VBox/Grid/PointZ")
+RegionHeight = NodePath("Side/Scroll/VBox/Grid/RegionHeight")
+SpawnYaw = NodePath("Side/Scroll/VBox/Grid/SpawnYaw")
+PerimeterWalls = NodePath("Side/Scroll/VBox/Grid/PerimeterWalls")
+WallHeight = NodePath("Side/Scroll/VBox/Grid/WallHeight")
+FloorThickness = NodePath("Side/Scroll/VBox/Grid/FloorThickness")
+VmapPath = NodePath("Side/Scroll/VBox/VmapRow/VmapPath")
+BrowseVmap = NodePath("Side/Scroll/VBox/VmapRow/Browse")
+ConvertBinary = NodePath("Side/Scroll/VBox/ConvertBinary")
+CompileAfter = NodePath("Side/Scroll/VBox/CompileAfter")
+Warnings = NodePath("Side/Scroll/VBox/Warnings")
+Status = NodePath("StatusBar/Status")
+
+[node name="TopBar" type="PanelContainer" parent="UI/Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 40.0
+grow_horizontal = 2
+
+[node name="HBox" type="HBoxContainer" parent="UI/Root/TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="New" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "New empty map"
+text = "New"
+
+[node name="Open" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "Open a layout (.json)"
+text = "Open..."
+
+[node name="Save" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "Save the layout (.json). Ctrl+S"
+text = "Save..."
+
+[node name="Export" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "Write the .vmap (and optionally compile). Ctrl+E"
+text = "Export .vmap"
+
+[node name="Sep1" type="VSeparator" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+
+[node name="Select" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "Select / drag points. Shift+drag = vertical. Ctrl+click an edge = insert point."
+text = "1 Select"
+
+[node name="Path" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "Draw a corridor polyline at the working elevation."
+text = "2 Path"
+
+[node name="Floor" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "Draw an extra walkable floor polygon."
+text = "3 Floor"
+
+[node name="Obstacle" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "Draw a solid block (taller than 65u cannot be jumped on)."
+text = "4 Obstacle"
+
+[node name="Pit" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "Draw a hole in the floor (height = depth, 0 = bottomless)."
+text = "5 Pit"
+
+[node name="SpawnT" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "Place a Terrorist spawn."
+text = "6 T spawn"
+
+[node name="SpawnCT" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "Place a Counter-Terrorist spawn."
+text = "7 CT spawn"
+
+[node name="Sep2" type="VSeparator" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+
+[node name="View" type="Button" parent="UI/Root/TopBar/HBox"]
+layout_mode = 2
+tooltip_text = "Toggle top-down orthographic / free fly camera (Tab)"
+text = "Top / Free view"
+
+[node name="Side" type="PanelContainer" parent="UI/Root"]
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -320.0
+offset_top = 44.0
+offset_bottom = -30.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="Scroll" type="ScrollContainer" parent="UI/Root/Side"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="VBox" type="VBoxContainer" parent="UI/Root/Side/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="SelectionLabel" type="Label" parent="UI/Root/Side/Scroll/VBox"]
+layout_mode = 2
+text = "Nothing selected"
+autowrap_mode = 3
+
+[node name="Grid" type="GridContainer" parent="UI/Root/Side/Scroll/VBox"]
+layout_mode = 2
+columns = 2
+
+[node name="EditHeader" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.8, 1, 1)
+text = "Editing"
+
+[node name="EditPad" type="Control" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+
+[node name="WorkElevationLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+text = "Working elevation"
+
+[node name="WorkElevation" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Height new points are drawn at. PgUp/PgDn or Shift+wheel."
+min_value = -4096.0
+max_value = 4096.0
+allow_greater = true
+allow_lesser = true
+suffix = "u"
+
+[node name="GridSizeLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+text = "Grid"
+
+[node name="GridSize" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Snap size. Hold Alt to place off-grid."
+max_value = 512.0
+value = 16.0
+suffix = "u"
+
+[node name="SelHeader" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.8, 1, 1)
+text = "Selection"
+
+[node name="SelPad" type="Control" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+
+[node name="PathWidthLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+text = "Path width"
+
+[node name="PathWidth" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 32.0
+max_value = 2048.0
+step = 8.0
+value = 192.0
+allow_greater = true
+suffix = "u"
+
+[node name="RegionKindLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+text = "Region kind"
+
+[node name="RegionKind" type="OptionButton" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PointZLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+text = "Z / elevation"
+
+[node name="PointZ" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = -4096.0
+max_value = 4096.0
+allow_greater = true
+allow_lesser = true
+suffix = "u"
+
+[node name="RegionHeightLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+text = "Height / depth"
+
+[node name="RegionHeight" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 4096.0
+value = 128.0
+allow_greater = true
+suffix = "u"
+
+[node name="SpawnYawLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+text = "Spawn yaw"
+
+[node name="SpawnYaw" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = -360.0
+max_value = 360.0
+step = 15.0
+suffix = "deg"
+
+[node name="BuildHeader" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.8, 1, 1)
+text = "Build"
+
+[node name="BuildPad" type="Control" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+
+[node name="PerimeterWallsLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+text = "Perimeter walls"
+
+[node name="PerimeterWalls" type="CheckBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+button_pressed = true
+
+[node name="WallHeightLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+text = "Wall height"
+
+[node name="WallHeight" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 16.0
+max_value = 4096.0
+step = 8.0
+value = 192.0
+suffix = "u"
+
+[node name="FloorThicknessLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+text = "Floor thickness"
+
+[node name="FloorThickness" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+max_value = 256.0
+value = 16.0
+suffix = "u"
+
+[node name="ExportHeader" type="Label" parent="UI/Root/Side/Scroll/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.8, 1, 1)
+text = "Export target (.vmap)"
+
+[node name="VmapRow" type="HBoxContainer" parent="UI/Root/Side/Scroll/VBox"]
+layout_mode = 2
+
+[node name="VmapPath" type="LineEdit" parent="UI/Root/Side/Scroll/VBox/VmapRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "content/csgo_addons/<addon>/maps/name.vmap"
+
+[node name="Browse" type="Button" parent="UI/Root/Side/Scroll/VBox/VmapRow"]
+layout_mode = 2
+text = "..."
+
+[node name="ConvertBinary" type="CheckBox" parent="UI/Root/Side/Scroll/VBox"]
+layout_mode = 2
+text = "Convert to binary DMX (dmxconvert)"
+
+[node name="CompileAfter" type="CheckBox" parent="UI/Root/Side/Scroll/VBox"]
+layout_mode = 2
+text = "Compile after export (resourcecompiler)"
+
+[node name="WarningsHeader" type="Label" parent="UI/Root/Side/Scroll/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.8, 0.4, 1)
+text = "Warnings"
+
+[node name="Warnings" type="Label" parent="UI/Root/Side/Scroll/VBox"]
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="StatusBar" type="PanelContainer" parent="UI/Root"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -28.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="Status" type="Label" parent="UI/Root/StatusBar"]
+layout_mode = 2
+text = "Ready"
+text_overrun_behavior = 3
+
+[node name="OpenDialog" type="FileDialog" parent="UI/Root"]
+title = "Open layout"
+size = Vector2i(900, 600)
+file_mode = 0
+access = 2
+filters = PackedStringArray("*.json ; Map layout")
+use_native_dialog = true
+
+[node name="SaveDialog" type="FileDialog" parent="UI/Root"]
+title = "Save layout"
+size = Vector2i(900, 600)
+file_mode = 4
+access = 2
+filters = PackedStringArray("*.json ; Map layout")
+use_native_dialog = true
+
+[node name="ExportDialog" type="FileDialog" parent="UI/Root"]
+title = "Export .vmap"
+size = Vector2i(900, 600)
+file_mode = 4
+access = 2
+filters = PackedStringArray("*.vmap ; Hammer map")
+use_native_dialog = true

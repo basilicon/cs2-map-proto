@@ -1,0 +1,22 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="CS2 Map Proto"
+config/description="Rapid CS2 layout prototyping: draw paths, floors, obstacles and pits, export straight to .vmap."
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+
+[dotnet]
+
+project/assembly_name="Cs2MapProto"
+
+[rendering]
+
+anti_aliasing/quality/msaa_3d=2
