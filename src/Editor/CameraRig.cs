@@ -120,7 +120,19 @@ public partial class CameraRig : Node3D
                     _topFocus += new Vector3(before.X - after.X, 0, before.Z - after.Z);
                     ApplyTopDown();
                 }
-                else FlySpeed = Mathf.Clamp(FlySpeed / f, 50f, 20000f);
+                else if (IsLooking)
+                {
+                    // While holding right mouse (looking), the wheel sets fly speed.
+                    FlySpeed = Mathf.Clamp(FlySpeed / f, 50f, 20000f);
+                }
+                else
+                {
+                    // Otherwise dolly towards / away from what's under the cursor.
+                    var dir = Camera.ProjectRayNormal(mb.Position);
+                    float step = FlySpeed * 0.3f;
+                    _freePos += dir * (mb.ButtonIndex == MouseButton.WheelUp ? step : -step);
+                    ApplyFree();
+                }
                 return true;
 
             case InputEventMouseButton mb when mb.ButtonIndex == MouseButton.Right && !IsTopDown:

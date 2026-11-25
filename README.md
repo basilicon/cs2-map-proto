@@ -24,8 +24,8 @@ Perimeter walls are generated around everything walkable.
 | 1-7 | Select, Path, Floor, Obstacle, Pit, T spawn, CT spawn |
 | Tab | Toggle top-down (ortho) / free fly camera |
 | Middle-drag, Space+drag, WASD | Pan (top-down) / move (free) |
-| Wheel | Zoom (top-down) / fly speed (free) |
-| Right mouse (free cam) | Hold to look; Q/E down/up |
+| Wheel | Zoom (top-down) / move towards the cursor (free) |
+| Right mouse (free cam) | Hold to look; Q/E down/up; wheel while holding = fly speed |
 | Click / drag a marker | Select & move a point (snapped; hold Alt for off-grid) |
 | Click a path / region line | Select the **whole shape**: drag, PgUp/PgDn, width, Z, C and Del then apply to all its points |
 | Shift+drag, PgUp/PgDn, Shift+wheel | Vertical offset of selection (or the working elevation while drawing) |
