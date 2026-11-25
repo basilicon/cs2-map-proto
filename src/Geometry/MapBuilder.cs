@@ -38,6 +38,7 @@ public static class MapBuilder
     const float FlatEpsilon = 0.5f;
     const float SpawnLift = 16f;        // matches Valve's template maps
     const float MinSpawnSpacing = 48f;  // player hull is 32 wide; leave a margin
+    const float EndDirSpan = 24f;       // free-end direction is measured over at least this distance
     const float RampClearance = 72f;    // player height: flat floors closer than this to a ramp yield to it
 
     public static BuiltMap Build(MapDocument doc)
@@ -97,21 +98,28 @@ public static class MapBuilder
                 AddLevel(Z(i), Poly2.Triangle(p, p - n0, p - n1));
             }
 
-            // Free flat ends get a square cap so dead ends and T-junctions overlap neatly.
-            void Cap(int end, int inner)
+            // Direction a free end points in, measured over at least EndDirSpan so a tiny last step can't skew it
+            // (a Bezier segment ending on a sharp point slows to near zero length at that end).
+            Vector2 EndDir(int end, int step)
             {
-                if (MathF.Abs(Z(end) - Z(inner)) >= FlatEpsilon) return;
-                var dir = Vector2.Normalize(P(end) - P(inner));
-                if (float.IsNaN(dir.X)) return;
-                AddLevel(Z(end), Poly2.SegmentQuad(P(end), P(end) + dir * hw, hw));
+                for (int q = end + step; q >= 0 && q < m; q += step)
+                    if (Vector2.Distance(P(end), P(q)) >= EndDirSpan || q == 0 || q == m - 1)
+                    {
+                        var d = Vector2.Normalize(P(end) - P(q));
+                        return float.IsNaN(d.X) ? Vector2.Zero : d;
+                    }
+                return Vector2.Zero;
             }
-            Cap(0, 1);
-            Cap(m - 1, m - 2);
 
             void EmitFlatRun(int from, int to)
             {
                 var line = new List<Vector2>();
+                // Free flat ends are extended by half the width (a square end), so dead ends and T-junctions
+                // overlap neatly. Extending the line itself (rather than adding a separate cap shape) keeps the
+                // end in one piece with the corridor, so there's no seam or wedge gap between them.
+                if (from == 0 && EndDir(0, +1) is var d0 && d0 != Vector2.Zero) line.Add(P(0) + d0 * hw);
                 for (int q = from; q <= to; q++) line.Add(P(q));
+                if (to == m - 1 && EndDir(m - 1, -1) is var d1 && d1 != Vector2.Zero) line.Add(P(m - 1) + d1 * hw);
                 foreach (var poly in Poly2.ThickenPolyline(line, hw)) AddLevel(Z(from), poly);
             }
 

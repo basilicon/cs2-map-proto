@@ -61,6 +61,17 @@ public partial class CameraRig : Node3D
         else { _freePos = _topFocus + new Vector3(0, TopDownSize * 0.35f, TopDownSize * 0.45f); _yaw = 0; _pitch = -0.65f; ApplyFree(); }
     }
 
+    /// <summary>Switches to the free cam at pos looking at target (Godot space).</summary>
+    public void LookFrom(Vector3 pos, Vector3 target)
+    {
+        var dir = (target - pos).Normalized();
+        _freePos = pos;
+        _yaw = Mathf.Atan2(-dir.X, -dir.Z);
+        _pitch = Mathf.Asin(Mathf.Clamp(dir.Y, -1f, 1f));
+        IsTopDown = false;
+        ApplyFree();
+    }
+
     /// <summary>World units covered by one screen pixel at a given point (for handle sizes and drag scaling).</summary>
     public float WorldPerPixel(Vector3 at)
     {

@@ -967,6 +967,13 @@ public partial class EditorRoot : Node3D
                     for (int i = 1; i < Doc.Paths[p].Points.Count - 1; i++) Doc.Paths[p].SetTangent(i, Doc.Paths[p].AutoTangent(i));
                 _dirtyGeometry = true;
             }
+            // --cam px py pz tx ty tz (Hammer coords): free cam at p looking at t.
+            int ci = Array.IndexOf(args, "--cam");
+            if (ci >= 0 && ci + 6 < args.Length)
+            {
+                var v = args.Skip(ci + 1).Take(6).Select(a => float.Parse(a, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                Rig.LookFrom(Space.ToGodot(v[0], v[1], v[2]), Space.ToGodot(v[3], v[4], v[5]));
+            }
             int sp = Array.IndexOf(args, "--select-path");
             if (sp >= 0 && sp + 1 < args.Length && int.TryParse(args[sp + 1], out int pathIdx) && pathIdx < Doc.Paths.Count)
                 Selected = Handle.WholePath(pathIdx);
