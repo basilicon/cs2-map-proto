@@ -47,7 +47,8 @@ public static class MapBuilder
 
         var levels = new SortedDictionary<int, PathsD>(); // floor height -> footprint polygons
         var footprint = new PathsD();                     // every walkable area, for perimeter walls
-        var ramps = new List<(PathD quad, Vector2 a, float za, Vector2 b, float zb)>();
+        var ramps = new List<(List<Vector2> left, List<Vector2> right, List<float> z)>();
+        bool steep = false;
         float minZ = float.MaxValue, maxZ = float.MinValue;
 
         void AddLevel(float z, PathD poly)
@@ -60,64 +61,72 @@ public static class MapBuilder
             minZ = MathF.Min(minZ, z); maxZ = MathF.Max(maxZ, z);
         }
 
-        // ---- Paths: split into flat runs (merged per height) and ramp segments.
+        // ---- Paths: flatten Bezier curves, then split into flat runs (merged per height) and ramp ribbons.
         foreach (var path in doc.Paths)
         {
-            var pts = path.Points;
-            if (pts.Count < 2) continue;
+            var samples = PathSampler.Flatten(path);
+            if (samples.Count < 2) continue;
             float hw = MathF.Max(8f, path.Width * 0.5f);
-            Vector2 P(int i) => new(pts[i].X, pts[i].Y);
+            int m = samples.Count;
+            Vector2 P(int i) => new(samples[i].P.X, samples[i].P.Y);
+            float Z(int i) => samples[i].P.Z;
+            bool Flat(int seg) => MathF.Abs(Z(seg + 1) - Z(seg)) < FlatEpsilon;
 
-            int runStart = 0;
-            for (int i = 1; i < pts.Count; i++)
+            // Maximal runs of same-kind segments; run [k, j] covers samples k..j+1.
+            for (int k = 0; k < m - 1;)
             {
-                if (MathF.Abs(pts[i].Z - pts[i - 1].Z) >= FlatEpsilon)
-                {
-                    EmitFlatRun(runStart, i - 1);
-                    var a = P(i - 1); var b = P(i);
-                    if (Vector2.Distance(a, b) > 1f)
-                    {
-                        ramps.Add((Poly2.SegmentQuad(a, b, hw), a, pts[i - 1].Z, b, pts[i].Z));
-                        footprint.Add(Poly2.SegmentQuad(a, b, hw));
-                        minZ = MathF.Min(minZ, MathF.Min(pts[i - 1].Z, pts[i].Z));
-                        maxZ = MathF.Max(maxZ, MathF.Max(pts[i - 1].Z, pts[i].Z));
-                    }
-                    runStart = i;
-                }
+                bool flat = Flat(k);
+                int j = k;
+                while (j + 1 < m - 1 && Flat(j + 1) == flat) j++;
+                if (flat) EmitFlatRun(k, j + 1);
+                else EmitRampRun(k, j + 1);
+                k = j + 1;
             }
-            EmitFlatRun(runStart, pts.Count - 1);
 
-            // Wedges fill the gaps on the outside of corners where a flat run meets a ramp (or two ramps meet).
-            for (int i = 1; i < pts.Count - 1; i++)
+            // Wedges fill the outside of corners where a flat run meets a ramp.
+            for (int i = 1; i < m - 1; i++)
             {
-                bool inFlat = MathF.Abs(pts[i].Z - pts[i - 1].Z) < FlatEpsilon;
-                bool outFlat = MathF.Abs(pts[i + 1].Z - pts[i].Z) < FlatEpsilon;
-                if (inFlat && outFlat) continue;
+                if (Flat(i - 1) == Flat(i)) continue;
                 var p = P(i);
                 var d0 = Vector2.Normalize(p - P(i - 1)); var d1 = Vector2.Normalize(P(i + 1) - p);
                 if (float.IsNaN(d0.X) || float.IsNaN(d1.X)) continue;
                 var n0 = new Vector2(-d0.Y, d0.X) * hw; var n1 = new Vector2(-d1.Y, d1.X) * hw;
-                AddLevel(pts[i].Z, Poly2.Triangle(p, p + n0, p + n1));
-                AddLevel(pts[i].Z, Poly2.Triangle(p, p - n0, p - n1));
+                AddLevel(Z(i), Poly2.Triangle(p, p + n0, p + n1));
+                AddLevel(Z(i), Poly2.Triangle(p, p - n0, p - n1));
             }
 
-            // Free ends get a square cap so dead ends and T-junctions overlap neatly.
+            // Free flat ends get a square cap so dead ends and T-junctions overlap neatly.
             void Cap(int end, int inner)
             {
-                if (MathF.Abs(pts[end].Z - pts[inner].Z) >= FlatEpsilon) return;
+                if (MathF.Abs(Z(end) - Z(inner)) >= FlatEpsilon) return;
                 var dir = Vector2.Normalize(P(end) - P(inner));
                 if (float.IsNaN(dir.X)) return;
-                AddLevel(pts[end].Z, Poly2.SegmentQuad(P(end), P(end) + dir * hw, hw));
+                AddLevel(Z(end), Poly2.SegmentQuad(P(end), P(end) + dir * hw, hw));
             }
             Cap(0, 1);
-            Cap(pts.Count - 1, pts.Count - 2);
+            Cap(m - 1, m - 2);
 
             void EmitFlatRun(int from, int to)
             {
-                if (to <= from) return;
                 var line = new List<Vector2>();
-                for (int k = from; k <= to; k++) line.Add(P(k));
-                foreach (var poly in Poly2.ThickenPolyline(line, hw)) AddLevel(pts[from].Z, poly);
+                for (int q = from; q <= to; q++) line.Add(P(q));
+                foreach (var poly in Poly2.ThickenPolyline(line, hw)) AddLevel(Z(from), poly);
+            }
+
+            void EmitRampRun(int from, int to)
+            {
+                var center = new List<Vector2>();
+                var zs = new List<float>();
+                for (int q = from; q <= to; q++) { center.Add(P(q)); zs.Add(Z(q)); }
+                var (left, right) = RibbonEdges(center, hw);
+                for (int q = 0; q + 1 < center.Count; q++)
+                {
+                    footprint.Add(Poly2.Ccw(new[] { right[q], right[q + 1], left[q + 1], left[q] }));
+                    float run = Vector2.Distance(center[q], center[q + 1]);
+                    if (run > 0.01f && MathF.Abs(zs[q + 1] - zs[q]) / run > 0.7f) steep = true;
+                }
+                ramps.Add((left, right, zs));
+                foreach (var z in zs) { minZ = MathF.Min(minZ, z); maxZ = MathF.Max(maxZ, z); }
             }
         }
 
@@ -145,21 +154,15 @@ public static class MapBuilder
             }
         }
 
-        // ---- Ramps: sloped slabs.
+        // ---- Ramps: continuous sloped ribbons (straight or curved).
         n = 0;
-        foreach (var (quad, a, za, b, zb) in ramps)
+        foreach (var (left, right, zs) in ramps)
         {
-            var dir = b - a; float len2 = dir.LengthSquared();
-            float Top(Vector2 p) => za + (zb - za) * Math.Clamp(Vector2.Dot(p - a, dir) / len2, 0f, 1f);
-            foreach (var shape in Poly2.ToShapes(new PathsD { quad }))
-            {
-                var m = new PolyMesh();
-                Prism(m, shape, Top, p => Top(p) - thick, s.FloorMaterial, s.FloorMaterial);
-                map.Meshes.Add(new BuiltMesh { Name = $"ramp_{n++}", Kind = MeshKind.Ramp, Mesh = m });
-            }
-            if (MathF.Abs(zb - za) / MathF.Sqrt(len2) > 0.7f)
-                map.Warnings.Add($"Ramp from {za} to {zb} is steeper than ~35 degrees; players may slide.");
+            var m = new PolyMesh();
+            Ribbon(m, left, right, zs, thick, s.FloorMaterial);
+            map.Meshes.Add(new BuiltMesh { Name = $"ramp_{n++}", Kind = MeshKind.Ramp, Mesh = m });
         }
+        if (steep) map.Warnings.Add("A ramp is steeper than ~35 degrees; players may slide.");
 
         // ---- Pits: optional bottom + liner walls hanging under the floor.
         n = 0;
@@ -203,7 +206,8 @@ public static class MapBuilder
         // ---- Perimeter walls around everything walkable.
         if (s.PerimeterWalls && footprint.Count > 0)
         {
-            var all = Poly2.Union(footprint);
+            // Curves flatten into many tiny segments; a 1u simplification keeps walls light without visible change.
+            var all = Clipper.SimplifyPaths(Poly2.Union(footprint), 1.0);
             var ring = Poly2.Difference(Poly2.Inflate(all, s.WallThickness), all);
             float wallBottom = minZ - thick;
             float wallTop = maxZ + s.WallHeight;
@@ -263,6 +267,83 @@ public static class MapBuilder
         });
 
         return map;
+    }
+
+    /// <summary>Left/right edges of a centreline offset by hw, with mitred joints (miter clamped to 2x).</summary>
+    static (List<Vector2> left, List<Vector2> right) RibbonEdges(List<Vector2> c, float hw)
+    {
+        var left = new List<Vector2>(c.Count);
+        var right = new List<Vector2>(c.Count);
+        Vector2 Normal(int seg)
+        {
+            var d = Vector2.Normalize(c[seg + 1] - c[seg]);
+            return new Vector2(-d.Y, d.X);
+        }
+        for (int i = 0; i < c.Count; i++)
+        {
+            Vector2 n;
+            float len = hw;
+            if (i == 0) n = Normal(0);
+            else if (i == c.Count - 1) n = Normal(i - 1);
+            else
+            {
+                var n0 = Normal(i - 1); var n1 = Normal(i);
+                n = Vector2.Normalize(n0 + n1);
+                if (float.IsNaN(n.X)) n = n0;
+                len = hw / MathF.Max(0.5f, Vector2.Dot(n, n0));
+            }
+            left.Add(c[i] + n * len);
+            right.Add(c[i] - n * len);
+        }
+        return (left, right);
+    }
+
+    /// <summary>Closed slab along a ribbon: top follows the per-section heights, bottom is thick below.
+    /// Non-planar top quads (curved ramps) are split into triangles so every Hammer face is planar.</summary>
+    static void Ribbon(PolyMesh mesh, List<Vector2> left, List<Vector2> right, List<float> z, float thick, string material)
+    {
+        int n = left.Count;
+        Vector3 Tp(Vector2 p, int i) => new(p, z[i]);
+        Vector3 Bp(Vector2 p, int i) => new(p, z[i] - thick);
+
+        for (int i = 0; i + 1 < n; i++)
+        {
+            var top = new[] { Tp(right[i], i), Tp(right[i + 1], i + 1), Tp(left[i + 1], i + 1), Tp(left[i], i) };
+            var bot = new[] { Bp(right[i], i), Bp(right[i + 1], i + 1), Bp(left[i + 1], i + 1), Bp(left[i], i) };
+            var ti = top.Select(mesh.AddVertex).ToArray();
+            var bi = bot.Select(mesh.AddVertex).ToArray();
+            if (IsPlanar(top))
+            {
+                mesh.AddFace(ti, material);
+                mesh.AddFace(new[] { bi[3], bi[2], bi[1], bi[0] }, material);
+            }
+            else
+            {
+                mesh.AddFace(new[] { ti[0], ti[1], ti[2] }, material);
+                mesh.AddFace(new[] { ti[0], ti[2], ti[3] }, material);
+                mesh.AddFace(new[] { bi[2], bi[1], bi[0] }, material);
+                mesh.AddFace(new[] { bi[3], bi[2], bi[0] }, material);
+            }
+        }
+
+        // Outline counter-clockwise from above: along the right edge, back along the left edge.
+        var outline = new List<(Vector2 p, int i)>();
+        for (int i = 0; i < n; i++) outline.Add((right[i], i));
+        for (int i = n - 1; i >= 0; i--) outline.Add((left[i], i));
+        for (int k = 0; k < outline.Count; k++)
+        {
+            var (pa, ia) = outline[k];
+            var (pb, ib) = outline[(k + 1) % outline.Count];
+            mesh.AddFace(new[] { mesh.AddVertex(Bp(pa, ia)), mesh.AddVertex(Bp(pb, ib)), mesh.AddVertex(Tp(pb, ib)), mesh.AddVertex(Tp(pa, ia)) }, material);
+        }
+    }
+
+    static bool IsPlanar(Vector3[] q)
+    {
+        var nrm = Vector3.Cross(q[1] - q[0], q[2] - q[0]);
+        float len = nrm.Length();
+        if (len < 1e-6f) return false;
+        return MathF.Abs(Vector3.Dot(q[3] - q[0], nrm / len)) < 0.05f;
     }
 
     /// <summary>Extrudes a polygon-with-holes between two height functions into one closed mesh.</summary>

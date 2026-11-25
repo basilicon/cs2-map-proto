@@ -28,12 +28,20 @@ public static class VmapExporter
         }
     }
 
-    public static string ToKeyValues2(BuiltMap map)
+    public static string ToKeyValues2(BuiltMap map) => ToKeyValues2(map, out _);
+
+    /// <param name="skipped">Names of meshes left out because they weren't manifold (e.g. a self-overlapping curve).</param>
+    public static string ToKeyValues2(BuiltMap map, out List<string> skipped)
     {
         var ctx = new Ctx();
         var children = new List<DmElement>();
+        skipped = new List<string>();
         foreach (var m in map.Meshes)
-            if (m.Mesh.Faces.Count > 0) children.Add(MapMesh(ctx, m));
+        {
+            if (m.Mesh.Faces.Count == 0) continue;
+            try { children.Add(MapMesh(ctx, m)); }
+            catch (InvalidOperationException) { skipped.Add(m.Name); }
+        }
         foreach (var e in map.Entities)
             children.Add(MapEntity(ctx, e));
 
@@ -111,9 +119,10 @@ public static class VmapExporter
     public static string Export(BuiltMap map, string vmapPath, string dmxConvertPath = null)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(vmapPath))!);
-        File.WriteAllText(vmapPath, ToKeyValues2(map));
+        File.WriteAllText(vmapPath, ToKeyValues2(map, out var skipped));
+        string note = skipped.Count == 0 ? "" : $" - skipped invalid meshes: {string.Join(", ", skipped)} (tight curve folding over itself?)";
         if (string.IsNullOrWhiteSpace(dmxConvertPath) || !File.Exists(dmxConvertPath))
-            return $"Wrote {vmapPath} (text DMX)";
+            return $"Wrote {vmapPath} (text DMX){note}";
 
         var psi = new ProcessStartInfo(dmxConvertPath)
         {
@@ -123,7 +132,7 @@ public static class VmapExporter
         using var p = Process.Start(psi)!;
         string output = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
         p.WaitForExit(60000);
-        return p.ExitCode == 0 ? $"Wrote {vmapPath} (binary DMX)" : $"Wrote {vmapPath} as text; dmxconvert failed: {output.Trim()}";
+        return (p.ExitCode == 0 ? $"Wrote {vmapPath} (binary DMX)" : $"Wrote {vmapPath} as text; dmxconvert failed: {output.Trim()}") + note;
     }
 
     // ------------------------------------------------------------------ nodes

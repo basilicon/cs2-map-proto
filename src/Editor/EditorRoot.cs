@@ -9,12 +9,17 @@ using Cs2MapProto.Model;
 
 namespace Cs2MapProto.Editor;
 
-public enum HandleType { None, PathPoint, RegionPoint, Spawn }
+public enum HandleType { None, PathPoint, RegionPoint, Spawn, TangentOut, TangentIn }
 
+/// <summary>Something the user can pick. Point = -1 on a PathPoint/RegionPoint handle means the whole shape.</summary>
 public readonly record struct Handle(HandleType Type, int Shape, int Point)
 {
     public static readonly Handle None = new(HandleType.None, -1, -1);
     public bool IsNone => Type == HandleType.None;
+    public bool IsWhole => Point < 0 && Type is HandleType.PathPoint or HandleType.RegionPoint;
+    public bool IsTangent => Type is HandleType.TangentOut or HandleType.TangentIn;
+    public static Handle WholePath(int s) => new(HandleType.PathPoint, s, -1);
+    public static Handle WholeRegion(int s) => new(HandleType.RegionPoint, s, -1);
 }
 
 /// <summary>Owns the document and turns input into edits. Rebuilds the preview from MapBuilder whenever
@@ -35,17 +40,25 @@ public partial class EditorRoot : Node3D
     public Vector3? CursorHammer { get; private set; }
     public BuiltMap Built { get; private set; }
 
+    /// <summary>Path whose curve handles are shown (selected path, point or tangent), or -1.</summary>
+    public int SelectedPath => Selected.Type is HandleType.PathPoint or HandleType.TangentOut or HandleType.TangentIn ? Selected.Shape : -1;
+    public int SelectedRegion => Selected.Type == HandleType.RegionPoint ? Selected.Shape : -1;
+
     readonly Stack<string> _undo = new(), _redo = new();
     string _docPath;
     bool _dirtyGeometry = true;
     bool _busy;
+    Handle _branchFrom = Handle.None; // path point the current Path draft started on
 
     // Drag state
     bool _dragging, _dragVertical, _dragPushedUndo;
     Vector2 _dragStartMouse;
-    float _dragStartZ, _dragAccumZ;
+    Vec3 _dragAnchor;
+    float _dragAccumZ;
+    List<(Handle h, Vec3 start)> _dragItems = new();
 
     const float PickRadiusPx = 10f;
+    const float WeldEpsilon = 0.5f;
 
     public override void _Ready()
     {
@@ -63,6 +76,7 @@ public partial class EditorRoot : Node3D
         Ui.ViewToggled += () => Rig.ToggleMode();
         Ui.PropertiesEdited += ApplyPropertyEdits;
         Ui.SettingsEdited += ApplySettingsEdits;
+        Rig.RightClicked += HandleRightClick;
 
         AfterDocReplaced("Demo layout loaded. 1-7 tools, Tab toggles view, F frames, Ctrl+E exports.");
     }
@@ -196,6 +210,7 @@ public partial class EditorRoot : Node3D
 
     // ------------------------------------------------------------------ handles
 
+    /// <summary>Every point marker (path points, region points, spawns). Curve handles are separate.</summary>
     public IEnumerable<Handle> AllHandles()
     {
         for (int s = 0; s < Doc.Paths.Count; s++)
@@ -205,22 +220,49 @@ public partial class EditorRoot : Node3D
         for (int s = 0; s < Doc.Spawns.Count; s++) yield return new Handle(HandleType.Spawn, s, 0);
     }
 
+    /// <summary>Bezier handles of the selected path's curved points.</summary>
+    public IEnumerable<Handle> TangentHandles()
+    {
+        int s = SelectedPath;
+        if (s < 0 || s >= Doc.Paths.Count) yield break;
+        var path = Doc.Paths[s];
+        for (int i = 0; i < path.Points.Count; i++)
+            if (path.IsCurved(i))
+            {
+                yield return new Handle(HandleType.TangentOut, s, i);
+                yield return new Handle(HandleType.TangentIn, s, i);
+            }
+    }
+
     bool HandleExists(Handle h) => h.Type switch
     {
-        HandleType.PathPoint => h.Shape < Doc.Paths.Count && h.Point < Doc.Paths[h.Shape].Points.Count,
+        HandleType.PathPoint or HandleType.TangentOut or HandleType.TangentIn =>
+            h.Shape < Doc.Paths.Count && h.Point < Doc.Paths[h.Shape].Points.Count && (h.Point >= 0 || h.Type == HandleType.PathPoint),
         HandleType.RegionPoint => h.Shape < Doc.Regions.Count && h.Point < Doc.Regions[h.Shape].Points.Count,
         HandleType.Spawn => h.Shape < Doc.Spawns.Count,
         _ => false,
     };
 
-    public Vec3 PositionOf(Handle h) => h.Type switch
+    public Vec3 PositionOf(Handle h)
     {
-        HandleType.PathPoint => Doc.Paths[h.Shape].Points[h.Point],
-        HandleType.RegionPoint => new Vec3(Doc.Regions[h.Shape].Points[h.Point].X, Doc.Regions[h.Shape].Points[h.Point].Y, Doc.Regions[h.Shape].Elevation),
-        HandleType.Spawn => Doc.Spawns[h.Shape].Position,
-        _ => default,
-    };
+        int pi = Math.Max(0, h.Point); // whole shapes are anchored on their first point
+        switch (h.Type)
+        {
+            case HandleType.PathPoint: return Doc.Paths[h.Shape].Points[pi];
+            case HandleType.RegionPoint:
+                var r = Doc.Regions[h.Shape];
+                return new Vec3(r.Points[pi].X, r.Points[pi].Y, r.Elevation);
+            case HandleType.Spawn: return Doc.Spawns[h.Shape].Position;
+            case HandleType.TangentOut or HandleType.TangentIn:
+                var path = Doc.Paths[h.Shape];
+                var p = path.Points[h.Point]; var t = path.TangentAt(h.Point);
+                float sign = h.Type == HandleType.TangentOut ? 1 : -1;
+                return new Vec3(p.X + t.X * sign, p.Y + t.Y * sign, p.Z);
+        }
+        return default;
+    }
 
+    /// <summary>Sets a single point handle (not whole shapes).</summary>
     void SetPosition(Handle h, Vec3 v)
     {
         switch (h.Type)
@@ -231,30 +273,79 @@ public partial class EditorRoot : Node3D
                 Doc.Regions[h.Shape].Elevation = v.Z; // a region is flat: vertical moves shift the whole region
                 break;
             case HandleType.Spawn: Doc.Spawns[h.Shape].Position = v; break;
+            case HandleType.TangentOut or HandleType.TangentIn:
+                var path = Doc.Paths[h.Shape];
+                var p = path.Points[h.Point];
+                float sign = h.Type == HandleType.TangentOut ? 1 : -1;
+                path.SetTangent(h.Point, new Vec3((v.X - p.X) * sign, (v.Y - p.Y) * sign, 0));
+                break;
         }
     }
 
-    Handle PickHandle(Vector2 mouse)
+    static bool Same(Vec3 a, Vec3 b) =>
+        MathF.Abs(a.X - b.X) < WeldEpsilon && MathF.Abs(a.Y - b.Y) < WeldEpsilon && MathF.Abs(a.Z - b.Z) < WeldEpsilon;
+
+    /// <summary>The point handles that move together with h. Path points sitting exactly on top of each other
+    /// (branch junctions, joined ends) are welded and move as one unless detach is set.</summary>
+    List<Handle> MoveSet(Handle h, bool detach)
+    {
+        var set = new List<Handle>();
+        switch (h.Type)
+        {
+            case HandleType.PathPoint when h.IsWhole:
+                for (int i = 0; i < Doc.Paths[h.Shape].Points.Count; i++) set.Add(new Handle(HandleType.PathPoint, h.Shape, i));
+                break;
+            case HandleType.RegionPoint when h.IsWhole:
+                for (int i = 0; i < Doc.Regions[h.Shape].Points.Count; i++) set.Add(new Handle(HandleType.RegionPoint, h.Shape, i));
+                break;
+            case HandleType.TangentOut or HandleType.TangentIn:
+                set.Add(new Handle(HandleType.PathPoint, h.Shape, h.Point));
+                break;
+            default:
+                set.Add(h);
+                break;
+        }
+        if (detach) return set;
+
+        // Pull in welded path points from other paths.
+        var anchors = set.Where(x => x.Type == HandleType.PathPoint).Select(PositionOf).ToList();
+        for (int s = 0; s < Doc.Paths.Count; s++)
+        {
+            if (h.IsWhole && h.Type == HandleType.PathPoint && s == h.Shape) continue;
+            var pts = Doc.Paths[s].Points;
+            for (int i = 0; i < pts.Count; i++)
+            {
+                var cand = new Handle(HandleType.PathPoint, s, i);
+                if (!set.Contains(cand) && anchors.Any(a => Same(a, pts[i]))) set.Add(cand);
+            }
+        }
+        return set;
+    }
+
+    Handle PickHandle(Vector2 mouse, bool includeTangents = true, Func<Handle, bool> filter = null)
     {
         var cam = Rig.Camera;
         Handle best = Handle.None; float bestD = PickRadiusPx;
-        foreach (var h in AllHandles())
+        var candidates = includeTangents ? TangentHandles().Concat(AllHandles()) : AllHandles();
+        foreach (var h in candidates)
         {
+            if (filter != null && !filter(h)) continue;
             var g = Space.ToGodot(PositionOf(h));
             if (cam.IsPositionBehind(g)) continue;
             float d = cam.UnprojectPosition(g).DistanceTo(mouse);
-            // Prefer the selected shape's points when they overlap others.
-            if (h.Type == Selected.Type && h.Shape == Selected.Shape) d -= 2f;
+            // Prefer the selected shape's markers when they overlap others (e.g. at a branch junction).
+            if (h.Shape == Selected.Shape && (h.Type == Selected.Type || (h.IsTangent && SelectedPath == h.Shape))) d -= 2f;
+            if (h.IsTangent) d -= 1f;
             if (d < bestD) { bestD = d; best = h; }
         }
         return best;
     }
 
-    /// <summary>Finds the path or region edge under the mouse, for inserting points (Ctrl+click).</summary>
-    (HandleType type, int shape, int insertAt) PickEdge(Vector2 mouse)
+    /// <summary>Finds the path or region edge under the mouse. For paths, insertAt is the index a new point would get.</summary>
+    (HandleType type, int shape, int insertAt, float z) PickEdge(Vector2 mouse)
     {
         var cam = Rig.Camera;
-        (HandleType, int, int) best = (HandleType.None, -1, -1);
+        (HandleType, int, int, float) best = (HandleType.None, -1, -1, 0);
         float bestD = PickRadiusPx;
         void Test(HandleType t, int s, Vec3 a, Vec3 b, int insertAt)
         {
@@ -263,20 +354,29 @@ public partial class EditorRoot : Node3D
             var sa = cam.UnprojectPosition(ga); var sb = cam.UnprojectPosition(gb);
             var closest = Geometry2D.GetClosestPointToSegment(mouse, sa, sb);
             float d = closest.DistanceTo(mouse);
-            if (d < bestD) { bestD = d; best = (t, s, insertAt); }
+            if (d < bestD)
+            {
+                float f = sa.DistanceTo(sb) > 0.01f ? sa.DistanceTo(closest) / sa.DistanceTo(sb) : 0;
+                bestD = d; best = (t, s, insertAt, a.Z + (b.Z - a.Z) * f);
+            }
         }
         for (int s = 0; s < Doc.Paths.Count; s++)
         {
-            var p = Doc.Paths[s].Points;
-            for (int i = 0; i + 1 < p.Count; i++) Test(HandleType.PathPoint, s, p[i], p[i + 1], i + 1);
+            var samples = PathSampler.Flatten(Doc.Paths[s]);
+            for (int i = 0; i + 1 < samples.Count; i++)
+            {
+                var a = samples[i].P; var b = samples[i + 1].P;
+                Test(HandleType.PathPoint, s, new Vec3(a.X, a.Y, a.Z), new Vec3(b.X, b.Y, b.Z), samples[i].Segment + 1);
+            }
         }
         for (int s = 0; s < Doc.Regions.Count; s++)
         {
             var r = Doc.Regions[s];
+            float top = r.Kind == Model.RegionKind.Obstacle ? r.Elevation + r.Height : r.Elevation;
             for (int i = 0; i < r.Points.Count; i++)
             {
                 var a = r.Points[i]; var b = r.Points[(i + 1) % r.Points.Count];
-                Test(HandleType.RegionPoint, s, new Vec3(a.X, a.Y, r.Elevation), new Vec3(b.X, b.Y, r.Elevation), i + 1);
+                Test(HandleType.RegionPoint, s, new Vec3(a.X, a.Y, top), new Vec3(b.X, b.Y, top), i + 1);
             }
         }
         return best;
@@ -326,6 +426,8 @@ public partial class EditorRoot : Node3D
             case Key.E when ctrl: _ = ExportAsync(); break;
             case Key.Tab: Rig.ToggleMode(); break;
             case Key.F when !ctrl: FrameAll(); break;
+            case Key.C when !ctrl: ToggleCurve(); break;
+            case Key.B when !ctrl: StartBranchFromSelection(); break;
             case Key.Key1: SetTool(Tool.Select); break;
             case Key.Key2: SetTool(Tool.Path); break;
             case Key.Key3: SetTool(Tool.Floor); break;
@@ -335,11 +437,15 @@ public partial class EditorRoot : Node3D
             case Key.Key7: SetTool(Tool.SpawnCT); break;
             case Key.Enter or Key.KpEnter: CommitDraft(); break;
             case Key.Escape:
-                if (Draft.Count > 0) { Draft.Clear(); Ui.SetStatus("Drawing cancelled"); }
+                if (Draft.Count > 0) { Draft.Clear(); _branchFrom = Handle.None; Ui.SetStatus("Drawing cancelled"); }
                 else { Selected = Handle.None; RefreshSelectionUi(); }
                 break;
             case Key.Backspace when Draft.Count > 0: Draft.RemoveAt(Draft.Count - 1); break;
-            case Key.Delete or Key.Backspace: DeleteSelected(k.ShiftPressed); break;
+            case Key.Delete or Key.Backspace:
+                if (k.ShiftPressed && !Selected.IsNone && !Selected.IsTangent && Selected.Type != HandleType.Spawn)
+                    Delete(new Handle(Selected.Type, Selected.Shape, -1));
+                else Delete(Selected);
+                break;
             case Key.Pageup: Nudge(+StepZ()); break;
             case Key.Pagedown: Nudge(-StepZ()); break;
             default: return;
@@ -349,20 +455,28 @@ public partial class EditorRoot : Node3D
 
     float StepZ() => Doc.GridSize > 0 ? Doc.GridSize : 16f;
 
-    /// <summary>PageUp/PageDown: raise/lower the selected point (or whole region / spawn); while drawing, the working height.</summary>
+    /// <summary>PageUp/PageDown: raise/lower the selection (welded points follow); while drawing, the working height.</summary>
     void Nudge(float dz)
     {
         if (CurrentTool != Tool.Select || Selected.IsNone)
         {
-            WorkZ += dz;
-            Ui.Silently(() => Ui.WorkElevation.Value = WorkZ);
+            SetWorkZ(WorkZ + dz);
             Ui.SetStatus($"Working elevation {WorkZ}");
             return;
         }
         PushUndo();
-        var p = PositionOf(Selected);
-        SetPosition(Selected, new Vec3(p.X, p.Y, p.Z + dz));
+        foreach (var h in MoveSet(Selected, Input.IsKeyPressed(Key.Ctrl)))
+        {
+            var p = PositionOf(h);
+            SetPosition(h, new Vec3(p.X, p.Y, p.Z + dz));
+        }
         AfterEdit();
+    }
+
+    void SetWorkZ(float z)
+    {
+        WorkZ = z;
+        Ui.Silently(() => Ui.WorkElevation.Value = z);
     }
 
     void HandleMouseButton(InputEventMouseButton mb)
@@ -375,10 +489,10 @@ public partial class EditorRoot : Node3D
             return;
         }
 
+        // In the free cam the right button is "look"; CameraRig reports quick clicks via RightClicked.
         if (mb.ButtonIndex == MouseButton.Right && mb.Pressed && Rig.IsTopDown)
         {
-            if (Draft.Count > 0) CommitDraft();
-            else { Selected = Handle.None; RefreshSelectionUi(); }
+            HandleRightClick(mb.Position);
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -388,7 +502,7 @@ public partial class EditorRoot : Node3D
 
         if (!mb.Pressed)
         {
-            if (_dragging) { _dragging = false; Ui.SetStatus("Moved"); }
+            if (_dragging) { _dragging = false; if (_dragPushedUndo) Ui.SetStatus("Moved"); }
             return;
         }
 
@@ -409,46 +523,186 @@ public partial class EditorRoot : Node3D
         GetViewport().SetInputAsHandled();
     }
 
+    /// <summary>Right-click: delete the marker under the cursor (draft point, placed point, spawn or curve handle).
+    /// On empty space it finishes the current drawing, or clears the selection.</summary>
+    void HandleRightClick(Vector2 mouse)
+    {
+        for (int i = Draft.Count - 1; i >= 0; i--)
+        {
+            if (Rig.Camera.UnprojectPosition(Space.ToGodot(Draft[i])).DistanceTo(mouse) < PickRadiusPx)
+            {
+                Draft.RemoveAt(i);
+                if (i == 0) _branchFrom = Handle.None;
+                Ui.SetStatus($"Removed draft point ({Draft.Count} left)");
+                return;
+            }
+        }
+
+        var h = PickHandle(mouse);
+        if (!h.IsNone) { Delete(h); return; }
+
+        if (Draft.Count > 0) CommitDraft();
+        else { Selected = Handle.None; RefreshSelectionUi(); }
+    }
+
     void SelectClick(InputEventMouseButton mb)
     {
-        if (mb.CtrlPressed)
+        bool ctrl = mb.CtrlPressed;
+        var hit = PickHandle(mb.Position);
+        if (!hit.IsNone)
         {
-            var (type, shape, at) = PickEdge(mb.Position);
-            if (type == HandleType.None) return;
-            float z = type == HandleType.PathPoint
-                ? (Doc.Paths[shape].Points[at - 1].Z + Doc.Paths[shape].Points[at].Z) * 0.5f
-                : Doc.Regions[shape].Elevation;
-            if (PickPlane(mb.Position, z) is not Vector3 h) return;
-            PushUndo();
-            var v = SnapXY(h);
-            if (type == HandleType.PathPoint) Doc.Paths[shape].Points.Insert(at, new Vec3(v.X, v.Y, Snap(z)));
-            else Doc.Regions[shape].Points.Insert(at, new Vec3(v.X, v.Y, 0));
-            Selected = new Handle(type, shape, at);
-            AfterEdit();
-            BeginDrag(mb.Position, pushedUndo: true);
+            Selected = hit;
+            RefreshSelectionUi();
+            BeginDrag(mb.Position, pushedUndo: false, detach: ctrl);
             return;
         }
 
-        Selected = PickHandle(mb.Position);
+        var (type, shape, at, z) = PickEdge(mb.Position);
+        if (type == HandleType.None)
+        {
+            Selected = Handle.None;
+            RefreshSelectionUi();
+            return;
+        }
+
+        if (ctrl)
+        {
+            // Ctrl+click on an edge inserts a point there and starts dragging it.
+            if (PickPlane(mb.Position, z) is not Vector3 h) return;
+            PushUndo();
+            var v = SnapXY(h);
+            if (type == HandleType.PathPoint)
+            {
+                var path = Doc.Paths[shape];
+                path.InsertPoint(at, new Vec3(v.X, v.Y, Snap(z)));
+                if (path.IsCurved(at - 1) || (at + 1 < path.Points.Count && path.IsCurved(at + 1)))
+                    path.SetTangent(at, path.AutoTangent(at));
+            }
+            else Doc.Regions[shape].Points.Insert(at, new Vec3(v.X, v.Y, 0));
+            Selected = new Handle(type, shape, at);
+            AfterEdit();
+            BeginDrag(mb.Position, pushedUndo: true, detach: true);
+            return;
+        }
+
+        // Plain click on a path/region line selects the whole shape (drag moves all of its points).
+        Selected = new Handle(type, shape, -1);
         RefreshSelectionUi();
-        if (!Selected.IsNone) BeginDrag(mb.Position, pushedUndo: false);
+        BeginDrag(mb.Position, pushedUndo: false, detach: false);
+        Ui.SetStatus("Whole shape selected: drag to move, PgUp/PgDn to raise/lower, C to curve, Del to delete.");
     }
 
-    void BeginDrag(Vector2 mouse, bool pushedUndo)
+    void BeginDrag(Vector2 mouse, bool pushedUndo, bool detach)
     {
         _dragging = true;
         _dragPushedUndo = pushedUndo;
         _dragStartMouse = mouse;
-        _dragStartZ = PositionOf(Selected).Z;
+        _dragAnchor = PositionOf(Selected);
         _dragAccumZ = 0;
-        _dragVertical = Input.IsKeyPressed(Key.Shift);
+        _dragVertical = Input.IsKeyPressed(Key.Shift) && !Selected.IsTangent;
+        _dragItems = Selected.IsTangent
+            ? new List<(Handle, Vec3)> { (Selected, _dragAnchor) }
+            : MoveSet(Selected, detach).Select(h => (h, PositionOf(h))).ToList();
     }
+
+    void HandleMouseMotion(InputEventMouseMotion mm)
+    {
+        float hoverZ = !Selected.IsNone && CurrentTool == Tool.Select ? PositionOf(Selected).Z : WorkZ;
+        CursorHammer = PickPlane(mm.Position, _dragging ? _dragAnchor.Z : hoverZ);
+        if (CursorHammer is Vector3 c) CursorHammer = new Vector3(Snap(c.X), Snap(c.Y), c.Z);
+
+        if (!_dragging || Selected.IsNone)
+        {
+            Hovered = CurrentTool switch
+            {
+                Tool.Select => PickHandle(mm.Position),
+                Tool.Path => PickHandle(mm.Position, false, h => h.Type == HandleType.PathPoint), // branch targets
+                _ => Handle.None,
+            };
+            return;
+        }
+        if (!_dragPushedUndo)
+        {
+            if (mm.Position.DistanceTo(_dragStartMouse) < 3f) return; // ignore click jitter
+            PushUndo();
+            _dragPushedUndo = true;
+        }
+
+        if (Selected.IsTangent)
+        {
+            // Curve handles move freely (no snapping) for smooth shapes.
+            if (PickPlane(mm.Position, _dragAnchor.Z) is Vector3 raw)
+                SetPosition(Selected, new Vec3(raw.X, raw.Y, _dragAnchor.Z));
+        }
+        else
+        {
+            float dx = 0, dy = 0, dz = 0;
+            if (_dragVertical)
+            {
+                _dragAccumZ += -mm.Relative.Y * Rig.WorldPerPixel(Space.ToGodot(_dragAnchor));
+                dz = Snap(_dragAnchor.Z + _dragAccumZ) - _dragAnchor.Z;
+            }
+            else if (PickPlane(mm.Position, _dragAnchor.Z) is Vector3 h)
+            {
+                // Snap the anchor to the grid; everything else moves by the same offset.
+                var target = SnapXY(h);
+                dx = target.X - _dragAnchor.X; dy = target.Y - _dragAnchor.Y;
+            }
+            foreach (var (item, start) in _dragItems)
+                SetPosition(item, new Vec3(start.X + dx, start.Y + dy, start.Z + dz));
+        }
+        AfterEdit();
+        GetViewport().SetInputAsHandled();
+    }
+
+    void Delete(Handle h)
+    {
+        if (h.IsNone || !HandleExists(h)) return;
+        PushUndo();
+        switch (h.Type)
+        {
+            case HandleType.PathPoint:
+                var path = Doc.Paths[h.Shape];
+                if (h.IsWhole || path.Points.Count <= 2) Doc.Paths.RemoveAt(h.Shape);
+                else path.RemovePoint(h.Point);
+                break;
+            case HandleType.RegionPoint:
+                var r = Doc.Regions[h.Shape];
+                if (h.IsWhole || r.Points.Count <= 3) Doc.Regions.RemoveAt(h.Shape);
+                else r.Points.RemoveAt(h.Point);
+                break;
+            case HandleType.Spawn: Doc.Spawns.RemoveAt(h.Shape); break;
+            case HandleType.TangentOut or HandleType.TangentIn:
+                Doc.Paths[h.Shape].SetTangent(h.Point, default); // removing a curve handle makes the point sharp
+                Selected = new Handle(HandleType.PathPoint, h.Shape, h.Point);
+                AfterEdit();
+                Ui.SetStatus("Point made sharp");
+                return;
+        }
+        if (h == Selected || (Selected.Shape == h.Shape && Selected.Type == h.Type)) Selected = Handle.None;
+        AfterEdit();
+        Ui.SetStatus("Deleted");
+    }
+
+    // ------------------------------------------------------------------ drawing
 
     void DraftClick(InputEventMouseButton mb)
     {
-        // The working elevation sets each new point's height, so changing it mid-path makes a ramp.
-        if (PickPlane(mb.Position, WorkZ) is not Vector3 h) return;
-        var p = SnapXY(h);
+        Vec3 p;
+        // Path tool: clicking an existing path marker snaps to it exactly, so new paths branch off or join it.
+        var hit = CurrentTool == Tool.Path ? PickHandle(mb.Position, false, h => h.Type == HandleType.PathPoint) : Handle.None;
+        if (!hit.IsNone)
+        {
+            p = PositionOf(hit);
+            SetWorkZ(p.Z);
+            if (Draft.Count == 0) _branchFrom = hit;
+        }
+        else
+        {
+            // The working elevation sets each new point's height, so changing it mid-path makes a ramp.
+            if (PickPlane(mb.Position, WorkZ) is not Vector3 h) return;
+            p = SnapXY(h);
+        }
 
         // Clicking the first point closes a polygon.
         if (CurrentTool != Tool.Path && Draft.Count >= 3)
@@ -462,7 +716,23 @@ public partial class EditorRoot : Node3D
             return;
         }
         Draft.Add(p);
-        Ui.SetStatus($"{CurrentTool}: {Draft.Count} point(s). Enter / right-click to finish, Backspace undoes a point, Esc cancels.");
+        string from = !_branchFrom.IsNone && Draft.Count == 1 ? $" from path {_branchFrom.Shape}" : "";
+        Ui.SetStatus($"{CurrentTool}{from}: {Draft.Count} point(s). Enter / right-click empty space to finish, right-click a point removes it, Esc cancels.");
+    }
+
+    /// <summary>B: start drawing a new path from the selected path point (extends the path if it's an end point).</summary>
+    void StartBranchFromSelection()
+    {
+        if (Selected.Type != HandleType.PathPoint || Selected.IsWhole) { Ui.SetStatus("Select a path point first, then press B to branch from it."); return; }
+        var from = Selected;
+        SetTool(Tool.Path);
+        var p = PositionOf(from);
+        SetWorkZ(p.Z);
+        Draft.Add(p);
+        _branchFrom = from;
+        var path = Doc.Paths[from.Shape];
+        bool isEnd = from.Point == 0 || from.Point == path.Points.Count - 1;
+        Ui.SetStatus(isEnd ? $"Extending path {from.Shape}: click to add points, Enter to finish." : $"Branching from path {from.Shape}: click to add points, Enter to finish.");
     }
 
     void CommitDraft()
@@ -472,8 +742,29 @@ public partial class EditorRoot : Node3D
         {
             if (Draft.Count < 2) { Ui.SetStatus("A path needs at least 2 points."); return; }
             PushUndo();
-            Doc.Paths.Add(new PathShape { Points = new List<Vec3>(Draft), Width = (float)Ui.PathWidth.Value });
-            Selected = new Handle(HandleType.PathPoint, Doc.Paths.Count - 1, Draft.Count - 1);
+            var branch = _branchFrom;
+            bool canExtend = !branch.IsNone && HandleExists(branch) && Same(PositionOf(branch), Draft[0]);
+            var target = canExtend ? Doc.Paths[branch.Shape] : null;
+            if (target != null && branch.Point == target.Points.Count - 1)
+            {
+                foreach (var d in Draft.Skip(1)) target.AddPoint(d);
+                Selected = new Handle(HandleType.PathPoint, branch.Shape, target.Points.Count - 1);
+                Ui.SetStatus($"Extended path {branch.Shape}");
+            }
+            else if (target != null && branch.Point == 0)
+            {
+                foreach (var d in Draft.Skip(1)) target.InsertPoint(0, d);
+                Selected = new Handle(HandleType.PathPoint, branch.Shape, 0);
+                Ui.SetStatus($"Extended path {branch.Shape}");
+            }
+            else
+            {
+                var path = new PathShape { Width = target?.Width ?? (float)Ui.PathWidth.Value };
+                foreach (var d in Draft) path.AddPoint(d);
+                Doc.Paths.Add(path);
+                Selected = new Handle(HandleType.PathPoint, Doc.Paths.Count - 1, path.Points.Count - 1);
+                Ui.SetStatus(target != null ? $"Branch added off path {branch.Shape}" : "Path added");
+            }
         }
         else
         {
@@ -487,76 +778,47 @@ public partial class EditorRoot : Node3D
                 Points = Draft.Select(p => new Vec3(p.X, p.Y, 0)).ToList(),
             });
             Selected = new Handle(HandleType.RegionPoint, Doc.Regions.Count - 1, 0);
+            Ui.SetStatus("Shape added");
         }
         Draft.Clear();
+        _branchFrom = Handle.None;
         AfterEdit();
-        Ui.SetStatus("Shape added");
     }
 
-    void HandleMouseMotion(InputEventMouseMotion mm)
+    /// <summary>C: toggle the selected path point between sharp and curved (or the whole path if it's selected).</summary>
+    void ToggleCurve()
     {
-        float hoverZ = !Selected.IsNone && CurrentTool == Tool.Select ? PositionOf(Selected).Z : WorkZ;
-        CursorHammer = PickPlane(mm.Position, _dragging ? _dragStartZ : hoverZ);
-        if (CursorHammer is Vector3 c) CursorHammer = new Vector3(Snap(c.X), Snap(c.Y), c.Z);
-
-        if (!_dragging || Selected.IsNone)
-        {
-            Hovered = CurrentTool == Tool.Select ? PickHandle(mm.Position) : Handle.None;
-            return;
-        }
-        if (!_dragPushedUndo)
-        {
-            if (mm.Position.DistanceTo(_dragStartMouse) < 3f) return; // ignore click jitter
-            PushUndo();
-            _dragPushedUndo = true;
-        }
-
-        var cur = PositionOf(Selected);
-        if (_dragVertical)
-        {
-            _dragAccumZ += -mm.Relative.Y * Rig.WorldPerPixel(Space.ToGodot(cur));
-            SetPosition(Selected, new Vec3(cur.X, cur.Y, Snap(_dragStartZ + _dragAccumZ)));
-        }
-        else if (PickPlane(mm.Position, _dragStartZ) is Vector3 h)
-        {
-            var v = SnapXY(h);
-            SetPosition(Selected, new Vec3(v.X, v.Y, cur.Z));
-        }
-        AfterEdit();
-        GetViewport().SetInputAsHandled();
-    }
-
-    void DeleteSelected(bool wholeShape)
-    {
-        if (Selected.IsNone) return;
+        int s = SelectedPath;
+        if (s < 0) { Ui.SetStatus("Select a path point (or click a path line) first, then press C to curve it."); return; }
         PushUndo();
-        switch (Selected.Type)
+        var path = Doc.Paths[s];
+        if (Selected.IsWhole)
         {
-            case HandleType.PathPoint:
-                var path = Doc.Paths[Selected.Shape];
-                if (wholeShape || path.Points.Count <= 2) Doc.Paths.RemoveAt(Selected.Shape);
-                else path.Points.RemoveAt(Selected.Point);
-                break;
-            case HandleType.RegionPoint:
-                var r = Doc.Regions[Selected.Shape];
-                if (wholeShape || r.Points.Count <= 3) Doc.Regions.RemoveAt(Selected.Shape);
-                else r.Points.RemoveAt(Selected.Point);
-                break;
-            case HandleType.Spawn: Doc.Spawns.RemoveAt(Selected.Shape); break;
+            bool makeCurved = !path.AnyCurved();
+            var autos = Enumerable.Range(0, path.Points.Count).Select(path.AutoTangent).ToList();
+            for (int i = 0; i < path.Points.Count; i++) path.SetTangent(i, makeCurved ? autos[i] : default);
+            Ui.SetStatus(makeCurved ? "Path curved (drag the handles to shape it)" : "Path made sharp");
         }
-        Selected = Handle.None;
+        else
+        {
+            int i = Selected.Point;
+            bool makeCurved = !path.IsCurved(i);
+            path.SetTangent(i, makeCurved ? path.AutoTangent(i) : default);
+            Selected = new Handle(HandleType.PathPoint, s, i);
+            Ui.SetStatus(makeCurved ? "Point curved (drag the handles to shape it)" : "Point made sharp");
+        }
         AfterEdit();
     }
 
     void SetTool(Tool t)
     {
-        if (Draft.Count > 0 && t != CurrentTool) Draft.Clear();
+        if (Draft.Count > 0 && t != CurrentTool) { Draft.Clear(); _branchFrom = Handle.None; }
         CurrentTool = t;
         Ui.SetTool(t);
         Ui.SetStatus(t switch
         {
-            Tool.Select => "Select: click/drag points (Shift+drag = vertical), Ctrl+click an edge inserts a point, Del removes (Shift+Del removes shape).",
-            Tool.Path => "Path: click points at the working elevation (PgUp/PgDn or Shift+wheel changes it, so the next point ramps). Enter finishes.",
+            Tool.Select => "Select: drag points (Shift = vertical, Ctrl = unweld), click a line to select the whole shape, Ctrl+click a line inserts a point, right-click deletes, C curves, B branches.",
+            Tool.Path => "Path: click points at the working elevation (PgUp/PgDn changes it, so the next point ramps). Click an existing path point to branch from / join it. Enter finishes.",
             Tool.Floor => "Floor: click a polygon outline; Enter or click the first point closes it.",
             Tool.Obstacle => "Obstacle: click a polygon outline; solid block from the working elevation up.",
             Tool.Pit => "Pit: outline a hole in the floor at the working elevation.",
@@ -572,17 +834,26 @@ public partial class EditorRoot : Node3D
         {
             Ui.PathWidth.Editable = Ui.RegionHeight.Editable = Ui.PointZ.Editable = Ui.SpawnYaw.Editable = false;
             Ui.RegionKind.Disabled = true;
+            Ui.SmoothPoint.Disabled = true;
+            Ui.SmoothPoint.ButtonPressed = false;
             switch (Selected.Type)
             {
-                case HandleType.PathPoint:
+                case HandleType.PathPoint or HandleType.TangentOut or HandleType.TangentIn:
                     var p = Doc.Paths[Selected.Shape];
-                    Ui.SelectionLabel.Text = $"Path {Selected.Shape}, point {Selected.Point}/{p.Points.Count - 1}";
+                    int pi = Math.Max(0, Selected.Point);
+                    Ui.SelectionLabel.Text = Selected.IsWhole
+                        ? $"Path {Selected.Shape} (whole path, {p.Points.Count} points)"
+                        : $"Path {Selected.Shape}, point {pi}/{p.Points.Count - 1}";
                     Ui.PathWidth.Value = p.Width; Ui.PathWidth.Editable = true;
-                    Ui.PointZ.Value = p.Points[Selected.Point].Z; Ui.PointZ.Editable = true;
+                    Ui.PointZ.Value = p.Points[pi].Z; Ui.PointZ.Editable = true;
+                    Ui.SmoothPoint.ButtonPressed = Selected.IsWhole ? p.AnyCurved() : p.IsCurved(pi);
+                    Ui.SmoothPoint.Disabled = false;
                     break;
                 case HandleType.RegionPoint:
                     var r = Doc.Regions[Selected.Shape];
-                    Ui.SelectionLabel.Text = $"{r.Kind} region {Selected.Shape}, point {Selected.Point}";
+                    Ui.SelectionLabel.Text = Selected.IsWhole
+                        ? $"{r.Kind} region {Selected.Shape} (whole shape)"
+                        : $"{r.Kind} region {Selected.Shape}, point {Selected.Point}";
                     Ui.RegionKind.Selected = (int)r.Kind; Ui.RegionKind.Disabled = false;
                     Ui.PointZ.Value = r.Elevation; Ui.PointZ.Editable = true;
                     Ui.RegionHeight.Value = r.Height; Ui.RegionHeight.Editable = r.Kind != Model.RegionKind.Floor;
@@ -607,11 +878,29 @@ public partial class EditorRoot : Node3D
         PushUndo();
         switch (Selected.Type)
         {
-            case HandleType.PathPoint:
+            case HandleType.PathPoint or HandleType.TangentOut or HandleType.TangentIn:
                 var p = Doc.Paths[Selected.Shape];
                 p.Width = (float)Ui.PathWidth.Value;
-                var pt = p.Points[Selected.Point];
-                p.Points[Selected.Point] = new Vec3(pt.X, pt.Y, (float)Ui.PointZ.Value);
+                float newZ = (float)Ui.PointZ.Value;
+                if (Selected.IsWhole)
+                {
+                    // Whole path: Z shows the first point; editing it shifts every point, keeping ramps intact.
+                    float dz = newZ - p.Points[0].Z;
+                    for (int i = 0; i < p.Points.Count; i++) p.Points[i] = new Vec3(p.Points[i].X, p.Points[i].Y, p.Points[i].Z + dz);
+                    bool wantCurved = Ui.SmoothPoint.ButtonPressed;
+                    if (wantCurved != p.AnyCurved())
+                    {
+                        var autos = Enumerable.Range(0, p.Points.Count).Select(p.AutoTangent).ToList();
+                        for (int i = 0; i < p.Points.Count; i++) p.SetTangent(i, wantCurved ? autos[i] : default);
+                    }
+                }
+                else
+                {
+                    var pt = p.Points[Selected.Point];
+                    p.Points[Selected.Point] = new Vec3(pt.X, pt.Y, newZ);
+                    if (Ui.SmoothPoint.ButtonPressed != p.IsCurved(Selected.Point))
+                        p.SetTangent(Selected.Point, Ui.SmoothPoint.ButtonPressed ? p.AutoTangent(Selected.Point) : default);
+                }
                 break;
             case HandleType.RegionPoint:
                 var r = Doc.Regions[Selected.Shape];
@@ -659,14 +948,28 @@ public partial class EditorRoot : Node3D
 
     public override void _Process(double delta)
     {
-        // Debug aid: --screenshot <png> [--free] saves the viewport after a few frames and quits.
-        if (++_frames == 30)
+        // Debug aid: --screenshot <png> [--free] [--select-path N] [--curve-demo] saves the viewport after a few frames and quits.
+        ++_frames;
+        if (_frames == 2)
+        {
+            var args = OS.GetCmdlineUserArgs();
+            if (args.Contains("--curve-demo"))
+            {
+                for (int p = 0; p < Doc.Paths.Count; p++)
+                    for (int i = 1; i < Doc.Paths[p].Points.Count - 1; i++) Doc.Paths[p].SetTangent(i, Doc.Paths[p].AutoTangent(i));
+                _dirtyGeometry = true;
+            }
+            int sp = Array.IndexOf(args, "--select-path");
+            if (sp >= 0 && sp + 1 < args.Length && int.TryParse(args[sp + 1], out int pathIdx) && pathIdx < Doc.Paths.Count)
+                Selected = Handle.WholePath(pathIdx);
+        }
+        if (_frames == 30)
         {
             var args = OS.GetCmdlineUserArgs();
             int si = Array.IndexOf(args, "--screenshot");
             if (si >= 0 && si + 1 < args.Length)
             {
-                if (args.Contains("--free") && Rig.IsTopDown) { Rig.ToggleMode(); _frames = 0; }
+                if (args.Contains("--free") && Rig.IsTopDown) { Rig.ToggleMode(); _frames = 3; }
                 else { GetViewport().GetTexture().GetImage().SavePng(args[si + 1]); GetTree().Quit(); }
             }
         }

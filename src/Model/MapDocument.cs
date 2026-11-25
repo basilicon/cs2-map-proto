@@ -24,6 +24,45 @@ public sealed class PathShape
     public Guid Id { get; set; } = Guid.NewGuid();
     public List<Vec3> Points { get; set; } = new();
     public float Width { get; set; } = 192f;
+
+    /// <summary>Per-point Bezier tangent (XY offset to the outgoing control point; the incoming one is mirrored).
+    /// Zero = sharp corner. Kept parallel to Points; use the helpers below to edit both together.</summary>
+    public List<Vec3> Tangents { get; set; } = new();
+
+    public void Normalize()
+    {
+        while (Tangents.Count < Points.Count) Tangents.Add(default);
+        if (Tangents.Count > Points.Count) Tangents.RemoveRange(Points.Count, Tangents.Count - Points.Count);
+    }
+
+    public Vec3 TangentAt(int i) => i >= 0 && i < Tangents.Count ? Tangents[i] : default;
+    public static bool IsZero(Vec3 t) => MathF.Abs(t.X) < 0.01f && MathF.Abs(t.Y) < 0.01f;
+    public bool IsCurved(int i) => !IsZero(TangentAt(i));
+    public bool AnyCurved() { for (int i = 0; i < Points.Count; i++) if (IsCurved(i)) return true; return false; }
+
+    public void SetTangent(int i, Vec3 t) { Normalize(); Tangents[i] = new Vec3(t.X, t.Y, 0); }
+    public void InsertPoint(int i, Vec3 p, Vec3 tangent = default) { Normalize(); Points.Insert(i, p); Tangents.Insert(i, tangent); }
+    public void AddPoint(Vec3 p, Vec3 tangent = default) => InsertPoint(Points.Count, p, tangent);
+    public void RemovePoint(int i) { Normalize(); Points.RemoveAt(i); Tangents.RemoveAt(i); }
+
+    /// <summary>Catmull-Rom style tangent through the neighbours: a sensible default curve.</summary>
+    public Vec3 AutoTangent(int i)
+    {
+        if (Points.Count < 2) return default;
+        var prev = Points[Math.Max(0, i - 1)];
+        var next = Points[Math.Min(Points.Count - 1, i + 1)];
+        float k = (i == 0 || i == Points.Count - 1) ? 1f / 3f : 1f / 6f;
+        return new Vec3((next.X - prev.X) * k, (next.Y - prev.Y) * k, 0);
+    }
+
+    /// <summary>Reverses direction (tangents flip so the curve keeps its shape).</summary>
+    public void Reverse()
+    {
+        Normalize();
+        Points.Reverse();
+        Tangents.Reverse();
+        for (int i = 0; i < Tangents.Count; i++) Tangents[i] = new Vec3(-Tangents[i].X, -Tangents[i].Y, 0);
+    }
 }
 
 public enum RegionKind
@@ -95,7 +134,12 @@ public sealed class MapDocument
     };
 
     public string ToJson() => JsonSerializer.Serialize(this, JsonOpts);
-    public static MapDocument FromJson(string json) => JsonSerializer.Deserialize<MapDocument>(json, JsonOpts) ?? new MapDocument();
+    public static MapDocument FromJson(string json)
+    {
+        var d = JsonSerializer.Deserialize<MapDocument>(json, JsonOpts) ?? new MapDocument();
+        foreach (var p in d.Paths) p.Normalize(); // older files have no Tangents
+        return d;
+    }
     public MapDocument Clone() => FromJson(ToJson());
 
     public void Save(string path) => File.WriteAllText(path, ToJson());

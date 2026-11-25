@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using Cs2MapProto.Geometry;
 using Cs2MapProto.Model;
 
 namespace Cs2MapProto.Editor;
@@ -19,6 +20,8 @@ public partial class OverlayRenderer : Node3D
     static readonly Color SelectedColor = new(1f, 1f, 0.2f);
     static readonly Color HoverColor = new(1f, 1f, 1f);
     static readonly Color DraftColor = new(1f, 0.95f, 0.4f);
+    static readonly Color TangentColor = new(1f, 0.45f, 0.75f);
+    static readonly Color CurvedPointColor = new(0.55f, 0.95f, 1f);
     static readonly Color TColor = new(0.95f, 0.65f, 0.2f);
     static readonly Color CTColor = new(0.35f, 0.55f, 1f);
 
@@ -61,18 +64,20 @@ public partial class OverlayRenderer : Node3D
 
         DrawGrid(ed);
 
-        // Path centerlines + width edges.
+        // Path centrelines (flattened, so curves show as curves).
         for (int s = 0; s < doc.Paths.Count; s++)
         {
-            var p = doc.Paths[s].Points;
-            bool sel = ed.Selected.Type == HandleType.PathPoint && ed.Selected.Shape == s;
-            var col = sel ? SelectedColor : PathColor;
-            for (int i = 0; i + 1 < p.Count; i++) Line(Lift(p[i]), Lift(p[i + 1]), col);
+            bool sel = ed.SelectedPath == s;
+            bool whole = sel && ed.Selected.IsWhole;
+            var col = whole ? SelectedColor : sel ? SelectedColor with { A = 0.75f } : PathColor;
+            var samples = PathSampler.Flatten(doc.Paths[s]);
+            for (int i = 0; i + 1 < samples.Count; i++)
+                Line(Lift(V(samples[i].P)), Lift(V(samples[i + 1].P)), col);
         }
         for (int s = 0; s < doc.Regions.Count; s++)
         {
             var r = doc.Regions[s];
-            bool sel = ed.Selected.Type == HandleType.RegionPoint && ed.Selected.Shape == s;
+            bool sel = ed.SelectedRegion == s;
             var col = sel ? SelectedColor : r.Kind switch { RegionKind.Floor => FloorColor, RegionKind.Obstacle => ObstacleColor, _ => PitColor };
             float top = r.Kind == RegionKind.Obstacle ? r.Elevation + r.Height : r.Elevation;
             for (int i = 0; i < r.Points.Count; i++)
@@ -80,6 +85,15 @@ public partial class OverlayRenderer : Node3D
                 var a = r.Points[i]; var b = r.Points[(i + 1) % r.Points.Count];
                 Line(new Vec3(a.X, a.Y, top + 1), new Vec3(b.X, b.Y, top + 1), col);
             }
+        }
+
+        // Bezier handles of the selected path.
+        foreach (var h in ed.TangentHandles())
+        {
+            if (h.Type != HandleType.TangentOut) continue;
+            var pIn = ed.PositionOf(h with { Type = HandleType.TangentIn });
+            var pOut = ed.PositionOf(h);
+            Line(Lift(pIn), Lift(pOut), TangentColor with { A = 0.7f });
         }
 
         // Draft.
@@ -98,13 +112,19 @@ public partial class OverlayRenderer : Node3D
             var pos = ed.PositionOf(h);
             Color col;
             float size = 5f;
-            if (h == ed.Selected) { col = SelectedColor; size = 7f; }
-            else if (h == ed.Hovered) { col = HoverColor; size = 6f; }
+            bool inWholeSelection = ed.Selected.IsWhole && h.Type == ed.Selected.Type && h.Shape == ed.Selected.Shape;
+            if (h == ed.Selected || inWholeSelection) { col = SelectedColor; size = h == ed.Selected ? 7f : 6f; }
+            else if (h == ed.Hovered) { col = HoverColor; size = 7f; }
             else if (h.Type == HandleType.Spawn) col = doc.Spawns[h.Shape].Team == Team.T ? TColor : CTColor;
-            else if (h.Type == HandleType.PathPoint) col = PathColor;
+            else if (h.Type == HandleType.PathPoint) col = doc.Paths[h.Shape].IsCurved(h.Point) ? CurvedPointColor : PathColor;
             else col = doc.Regions[h.Shape].Kind switch { RegionKind.Floor => FloorColor, RegionKind.Obstacle => ObstacleColor, _ => PitColor };
             Square(ed, Space.ToGodot(Lift(pos)), size, col);
             if (h.Type == HandleType.Spawn) SpawnMarker(ed, doc.Spawns[h.Shape], col);
+        }
+        foreach (var h in ed.TangentHandles())
+        {
+            var col = h == ed.Selected ? SelectedColor : h == ed.Hovered ? HoverColor : TangentColor;
+            Diamond(ed, Space.ToGodot(Lift(ed.PositionOf(h))), h == ed.Selected ? 7f : 5.5f, col);
         }
         foreach (var d in draft) Square(ed, Space.ToGodot(Lift(d)), 5f, DraftColor);
         if (ed.CursorHammer is Vector3 cur && ed.CurrentTool != Tool.Select)
@@ -115,6 +135,16 @@ public partial class OverlayRenderer : Node3D
     }
 
     static Vec3 Lift(Vec3 v) => new(v.X, v.Y, v.Z + 1f);
+    static Vec3 V(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
+
+    void Diamond(EditorRoot ed, Vector3 g, float px, Color c)
+    {
+        var cam = ed.Rig.Camera;
+        float r = ed.Rig.WorldPerPixel(g) * px;
+        var right = cam.GlobalBasis.X * r; var up = cam.GlobalBasis.Y * r;
+        _tris.Add((g - right, c)); _tris.Add((g + up, c)); _tris.Add((g + right, c));
+        _tris.Add((g - right, c)); _tris.Add((g + right, c)); _tris.Add((g - up, c));
+    }
 
     void Square(EditorRoot ed, Vector3 g, float px, Color c)
     {

@@ -14,6 +14,12 @@ public partial class CameraRig : Node3D
     public bool IsTopDown { get; private set; } = true;
     public bool IsLooking { get; private set; }
 
+    /// <summary>Raised for a short right-click in free-cam mode (where holding the button means "look").</summary>
+    public event System.Action<Vector2> RightClicked;
+    Vector2 _rmbPressPos;
+    float _rmbMoved;
+    ulong _rmbPressMs;
+
     Vector3 _topFocus = Vector3.Zero; // Godot space
     float _yaw = 0f, _pitch = -0.6f;
     Vector3 _freePos = new(0, 900, 1400);
@@ -107,10 +113,25 @@ public partial class CameraRig : Node3D
                 return true;
 
             case InputEventMouseButton mb when mb.ButtonIndex == MouseButton.Right && !IsTopDown:
-                SetLooking(mb.Pressed);
+                if (mb.Pressed)
+                {
+                    _rmbPressPos = mb.Position; _rmbMoved = 0; _rmbPressMs = Time.GetTicksMsec();
+                    SetLooking(true);
+                }
+                else
+                {
+                    SetLooking(false);
+                    // A quick click without looking around counts as a right-click (e.g. delete a point).
+                    if (_rmbMoved < 6f && Time.GetTicksMsec() - _rmbPressMs < 350)
+                    {
+                        Input.WarpMouse(_rmbPressPos);
+                        RightClicked?.Invoke(_rmbPressPos);
+                    }
+                }
                 return true;
 
             case InputEventMouseMotion mm when IsLooking:
+                _rmbMoved += mm.Relative.Length();
                 _yaw -= mm.Relative.X * 0.004f;
                 _pitch = Mathf.Clamp(_pitch - mm.Relative.Y * 0.004f, -1.55f, 1.55f);
                 ApplyFree();

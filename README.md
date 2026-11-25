@@ -26,11 +26,19 @@ Perimeter walls are generated around everything walkable.
 | Middle-drag, Space+drag, WASD | Pan (top-down) / move (free) |
 | Wheel | Zoom (top-down) / fly speed (free) |
 | Right mouse (free cam) | Hold to look; Q/E down/up |
-| Click / drag | Select & move points (snapped; hold Alt for off-grid) |
+| Click / drag a marker | Select & move a point (snapped; hold Alt for off-grid) |
+| Click a path / region line | Select the **whole shape**: drag, PgUp/PgDn, width, Z, C and Del then apply to all its points |
 | Shift+drag, PgUp/PgDn, Shift+wheel | Vertical offset of selection (or the working elevation while drawing) |
-| Ctrl+click edge | Insert a point |
-| Enter / right-click | Finish drawing; Backspace removes last draft point; Esc cancels |
+| Ctrl+drag a marker | Move just that point, unwelding it from paths that share its position |
+| Ctrl+click a line | Insert a point |
+| Right-click a marker | Delete it (placed point, draft point, spawn; on a curve handle it makes the point sharp). In free cam use a quick click. |
+| Right-click empty space / Enter | Finish drawing; Backspace removes last draft point; Esc cancels |
+| Path tool: click an existing path point | Start from / snap to it: from an end point it **extends** that path, elsewhere it starts a **branch** |
+| B | Branch (or extend) from the selected path point |
+| C / "Curved" checkbox | Toggle Bezier curve on the selected point (or whole path); drag the pink handles to shape it |
 | Del / Shift+Del | Delete point / whole shape |
+
+Path points that sit exactly on top of each other (branch junctions, joined ends) are welded: dragging one moves all of them.
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Ctrl+S, Ctrl+E | Save layout (.json), export .vmap |
 | F | Frame everything |
