@@ -78,6 +78,14 @@ public partial class EditorRoot : Node3D
         Ui.SettingsEdited += ApplySettingsEdits;
         Rig.RightClicked += HandleRightClick;
 
+        // godot -- --load <layout.json> opens a layout at startup.
+        var args = OS.GetCmdlineUserArgs();
+        int li = Array.IndexOf(args, "--load");
+        if (li >= 0 && li + 1 < args.Length)
+        {
+            try { Doc = MapDocument.Load(args[li + 1]); _docPath = args[li + 1]; AfterDocReplaced($"Opened {_docPath}"); return; }
+            catch (Exception e) { GD.PrintErr($"--load failed: {e.Message}"); }
+        }
         AfterDocReplaced("Demo layout loaded. 1-7 tools, Tab toggles view, F frames, Ctrl+E exports.");
     }
 

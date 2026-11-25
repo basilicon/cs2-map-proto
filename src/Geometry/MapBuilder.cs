@@ -38,6 +38,7 @@ public static class MapBuilder
     const float FlatEpsilon = 0.5f;
     const float SpawnLift = 16f;        // matches Valve's template maps
     const float MinSpawnSpacing = 48f;  // player hull is 32 wide; leave a margin
+    const float RampClearance = 72f;    // player height: flat floors closer than this to a ramp yield to it
 
     public static BuiltMap Build(MapDocument doc)
     {
@@ -49,6 +50,7 @@ public static class MapBuilder
         var footprint = new PathsD();                     // every walkable area, for perimeter walls
         var ramps = new List<(List<Vector2> left, List<Vector2> right, List<float> z)>();
         bool steep = false;
+        var rampSections = new List<(PathD quad, float zMin, float zMax)>(); // ramp footprint pieces with their height range
         float minZ = float.MaxValue, maxZ = float.MinValue;
 
         void AddLevel(float z, PathD poly)
@@ -121,7 +123,9 @@ public static class MapBuilder
                 var (left, right) = RibbonEdges(center, hw);
                 for (int q = 0; q + 1 < center.Count; q++)
                 {
-                    footprint.Add(Poly2.Ccw(new[] { right[q], right[q + 1], left[q + 1], left[q] }));
+                    var section = Poly2.Ccw(new[] { right[q], right[q + 1], left[q + 1], left[q] });
+                    footprint.Add(section);
+                    rampSections.Add((section, MathF.Min(zs[q], zs[q + 1]), MathF.Max(zs[q], zs[q + 1])));
                     float run = Vector2.Distance(center[q], center[q + 1]);
                     if (run > 0.01f && MathF.Abs(zs[q + 1] - zs[q]) / run > 0.7f) steep = true;
                 }
@@ -142,6 +146,11 @@ public static class MapBuilder
         {
             var area = Poly2.Union(polys);
             var cut = new PathsD();
+            // Where a ramp passes within player height of this floor, the ramp is the floor: cut it out.
+            // Otherwise end caps / branch ends that reach over a ramp leave flat slabs hanging above or
+            // poking through its slope. Floors further above/below (e.g. a corridor under a ramp) are untouched.
+            foreach (var (quad, zMin, zMax) in rampSections)
+                if (z >= zMin - RampClearance && z <= zMax + RampClearance) cut.Add(quad);
             foreach (var pit in pits.Where(p => MathF.Abs(p.Elevation - z) < 1f))
                 cut.Add(Poly2.Ccw(pit.Points.Select(p => new Vector2(p.X, p.Y))));
             if (cut.Count > 0) area = Poly2.Difference(area, cut);
