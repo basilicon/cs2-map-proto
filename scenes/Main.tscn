@@ -1,30 +1,45 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://src/Editor/EditorRoot.cs" id="1_root"]
-[ext_resource type="Script" path="res://src/Editor/CameraRig.cs" id="2_rig"]
-[ext_resource type="Script" path="res://src/Editor/PreviewRenderer.cs" id="3_prev"]
-[ext_resource type="Script" path="res://src/Editor/OverlayRenderer.cs" id="4_over"]
-[ext_resource type="Script" path="res://src/Editor/EditorUi.cs" id="5_ui"]
-[ext_resource type="Shader" path="res://shaders/preview.gdshader" id="6_shader"]
-[ext_resource type="Script" path="res://src/Editor/CurveEditor.cs" id="7_curve"]
+[ext_resource type="Script" path="res://src/Editor/EditorRoot.cs" id="1_x"]
+[ext_resource type="Script" path="res://src/Editor/CameraRig.cs" id="2_x"]
+[ext_resource type="Script" path="res://src/Editor/PreviewRenderer.cs" id="3_x"]
+[ext_resource type="Script" path="res://src/Editor/OverlayRenderer.cs" id="4_x"]
+[ext_resource type="Script" path="res://src/Editor/EditorUi.cs" id="5_x"]
+[ext_resource type="Shader" path="res://shaders/preview.gdshader" id="6_x"]
+[ext_resource type="Script" path="res://src/Editor/CurveEditor.cs" id="7_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/undo.svg" id="8_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/redo.svg" id="9_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/top_view.svg" id="10_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/free_view.svg" id="11_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/folder.svg" id="12_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/export.svg" id="13_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/select.svg" id="14_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/path.svg" id="15_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/floor.svg" id="16_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/obstacle.svg" id="17_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/pit.svg" id="18_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/spawn_t.svg" id="19_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/spawn_ct.svg" id="20_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/warning.svg" id="21_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/close.svg" id="22_x"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
-background_color = Color(0.11, 0.12, 0.14, 1)
+background_color = Color(0.105, 0.115, 0.135, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.62, 0.66, 0.75, 1)
 ambient_light_energy = 0.55
 tonemap_mode = 2
 
 [node name="Main" type="Node3D" node_paths=PackedStringArray("Ui", "Rig", "Preview", "Overlay")]
-script = ExtResource("1_root")
+script = ExtResource("1_x")
 Ui = NodePath("UI/Root")
 Rig = NodePath("CameraRig")
 Preview = NodePath("Preview")
 Overlay = NodePath("Overlay")
 
 [node name="CameraRig" type="Node3D" parent="." node_paths=PackedStringArray("Camera")]
-script = ExtResource("2_rig")
+script = ExtResource("2_x")
 Camera = NodePath("Camera3D")
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig"]
@@ -40,15 +55,15 @@ directional_shadow_max_distance = 16000.0
 environment = SubResource("Env")
 
 [node name="Preview" type="Node3D" parent="."]
-script = ExtResource("3_prev")
-PreviewShader = ExtResource("6_shader")
+script = ExtResource("3_x")
+PreviewShader = ExtResource("6_x")
 
 [node name="Overlay" type="Node3D" parent="."]
-script = ExtResource("4_over")
+script = ExtResource("4_x")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("NewButton", "OpenButton", "SaveButton", "ExportButton", "OpenDialog", "SaveDialog", "ExportDialog", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ViewToggle", "WorkElevation", "GridSize", "SelectionLabel", "PathWidth", "PointCorner", "EndpointDepth", "RegionKind", "PointZ", "RegionHeight", "SpawnYaw", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Warnings", "Status", "ProfilePanel", "ProfileKind", "ProfileEnabled", "ProfileReset", "ProfileEditor")]
+[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("DocName", "DirtyChip", "UndoButton", "RedoButton", "TopViewButton", "FreeViewButton", "FileMenu", "ExportButton", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ToolInfo", "WarningButton", "WarningsPopover", "WarningsClose", "Warnings", "ProfilePanel", "ProfileKind", "ProfileEnabled", "ProfileReset", "ProfileEditor", "SelectionIcon", "SelectionLabel", "SelectionSub", "PropsSection", "KindRow", "RegionKind", "ZRow", "ZLabel", "PointZ", "HeightRow", "HeightLabel", "RegionHeight", "WidthRow", "WidthLabel", "PathWidth", "CornerRow", "CornerSharp", "CornerBevel", "CornerRound", "CornerSmooth", "EndpointRow", "EndpointDepth", "YawRow", "YawLabel", "SpawnYaw", "WorkElevation", "GridSize", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Status", "LastExport", "CursorLabel", "OpenDialog", "SaveDialog", "ExportDialog")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -56,201 +71,715 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("5_ui")
-NewButton = NodePath("TopBar/HBox/New")
-OpenButton = NodePath("TopBar/HBox/Open")
-SaveButton = NodePath("TopBar/HBox/Save")
-ExportButton = NodePath("TopBar/HBox/Export")
-OpenDialog = NodePath("OpenDialog")
-SaveDialog = NodePath("SaveDialog")
-ExportDialog = NodePath("ExportDialog")
-SelectTool = NodePath("TopBar/HBox/Select")
-PathTool = NodePath("TopBar/HBox/Path")
-FloorTool = NodePath("TopBar/HBox/Floor")
-ObstacleTool = NodePath("TopBar/HBox/Obstacle")
-PitTool = NodePath("TopBar/HBox/Pit")
-SpawnTTool = NodePath("TopBar/HBox/SpawnT")
-SpawnCTTool = NodePath("TopBar/HBox/SpawnCT")
-ViewToggle = NodePath("TopBar/HBox/View")
-WorkElevation = NodePath("Side/Scroll/VBox/Grid/WorkElevation")
-GridSize = NodePath("Side/Scroll/VBox/Grid/GridSize")
-SelectionLabel = NodePath("Side/Scroll/VBox/SelectionLabel")
-PathWidth = NodePath("Side/Scroll/VBox/Grid/PathWidth")
-PointCorner = NodePath("Side/Scroll/VBox/Grid/PointCorner")
-EndpointDepth = NodePath("Side/Scroll/VBox/Grid/EndpointDepth")
-RegionKind = NodePath("Side/Scroll/VBox/Grid/RegionKind")
-PointZ = NodePath("Side/Scroll/VBox/Grid/PointZ")
-RegionHeight = NodePath("Side/Scroll/VBox/Grid/RegionHeight")
-SpawnYaw = NodePath("Side/Scroll/VBox/Grid/SpawnYaw")
-PerimeterWalls = NodePath("Side/Scroll/VBox/Grid/PerimeterWalls")
-WallHeight = NodePath("Side/Scroll/VBox/Grid/WallHeight")
-FloorThickness = NodePath("Side/Scroll/VBox/Grid/FloorThickness")
-VmapPath = NodePath("Side/Scroll/VBox/VmapRow/VmapPath")
-BrowseVmap = NodePath("Side/Scroll/VBox/VmapRow/Browse")
-ConvertBinary = NodePath("Side/Scroll/VBox/ConvertBinary")
-CompileAfter = NodePath("Side/Scroll/VBox/CompileAfter")
-Warnings = NodePath("Side/Scroll/VBox/Warnings")
-Status = NodePath("StatusBar/Status")
-ProfilePanel = NodePath("Side/Scroll/VBox/ProfilePanel")
-ProfileKind = NodePath("Side/Scroll/VBox/ProfilePanel/ProfileRow/ProfileKind")
-ProfileEnabled = NodePath("Side/Scroll/VBox/ProfilePanel/ProfileRow/ProfileEnabled")
-ProfileReset = NodePath("Side/Scroll/VBox/ProfilePanel/ProfileRow/ProfileReset")
-ProfileEditor = NodePath("Side/Scroll/VBox/ProfilePanel/ProfileEditor")
+script = ExtResource("5_x")
+DocName = NodePath("%DocName")
+DirtyChip = NodePath("%DirtyChip")
+UndoButton = NodePath("%UndoButton")
+RedoButton = NodePath("%RedoButton")
+TopViewButton = NodePath("%TopViewButton")
+FreeViewButton = NodePath("%FreeViewButton")
+FileMenu = NodePath("%FileMenu")
+ExportButton = NodePath("%ExportButton")
+SelectTool = NodePath("%SelectTool")
+PathTool = NodePath("%PathTool")
+FloorTool = NodePath("%FloorTool")
+ObstacleTool = NodePath("%ObstacleTool")
+PitTool = NodePath("%PitTool")
+SpawnTTool = NodePath("%SpawnTTool")
+SpawnCTTool = NodePath("%SpawnCTTool")
+ToolInfo = NodePath("%ToolInfo")
+WarningButton = NodePath("%WarningButton")
+WarningsPopover = NodePath("%WarningsPopover")
+WarningsClose = NodePath("%WarningsClose")
+Warnings = NodePath("%Warnings")
+ProfilePanel = NodePath("%ProfilePanel")
+ProfileKind = NodePath("%ProfileKind")
+ProfileEnabled = NodePath("%ProfileEnabled")
+ProfileReset = NodePath("%ProfileReset")
+ProfileEditor = NodePath("%ProfileEditor")
+SelectionIcon = NodePath("%SelectionIcon")
+SelectionLabel = NodePath("%SelectionLabel")
+SelectionSub = NodePath("%SelectionSub")
+PropsSection = NodePath("%PropsSection")
+KindRow = NodePath("%KindRow")
+RegionKind = NodePath("%RegionKind")
+ZRow = NodePath("%ZRow")
+ZLabel = NodePath("%ZLabel")
+PointZ = NodePath("%PointZ")
+HeightRow = NodePath("%HeightRow")
+HeightLabel = NodePath("%HeightLabel")
+RegionHeight = NodePath("%RegionHeight")
+WidthRow = NodePath("%WidthRow")
+WidthLabel = NodePath("%WidthLabel")
+PathWidth = NodePath("%PathWidth")
+CornerRow = NodePath("%CornerRow")
+CornerSharp = NodePath("%CornerSharp")
+CornerBevel = NodePath("%CornerBevel")
+CornerRound = NodePath("%CornerRound")
+CornerSmooth = NodePath("%CornerSmooth")
+EndpointRow = NodePath("%EndpointRow")
+EndpointDepth = NodePath("%EndpointDepth")
+YawRow = NodePath("%YawRow")
+YawLabel = NodePath("%YawLabel")
+SpawnYaw = NodePath("%SpawnYaw")
+WorkElevation = NodePath("%WorkElevation")
+GridSize = NodePath("%GridSize")
+PerimeterWalls = NodePath("%PerimeterWalls")
+WallHeight = NodePath("%WallHeight")
+FloorThickness = NodePath("%FloorThickness")
+VmapPath = NodePath("%VmapPath")
+BrowseVmap = NodePath("%BrowseVmap")
+ConvertBinary = NodePath("%ConvertBinary")
+CompileAfter = NodePath("%CompileAfter")
+Status = NodePath("%Status")
+LastExport = NodePath("%LastExport")
+CursorLabel = NodePath("%CursorLabel")
+OpenDialog = NodePath("%OpenDialog")
+SaveDialog = NodePath("%SaveDialog")
+ExportDialog = NodePath("%ExportDialog")
 
-[node name="TopBar" type="PanelContainer" parent="UI/Root"]
+[node name="Layout" type="VBoxContainer" parent="UI/Root"]
+mouse_filter = 2
+theme_override_constants/separation = 0
 layout_mode = 1
-anchors_preset = 10
+anchors_preset = 15
 anchor_right = 1.0
-offset_bottom = 40.0
+anchor_bottom = 1.0
 grow_horizontal = 2
+grow_vertical = 2
 
-[node name="HBox" type="HBoxContainer" parent="UI/Root/TopBar"]
+[node name="TopBar" type="PanelContainer" parent="UI/Root/Layout"]
+theme_type_variation = &"TopBar"
+
+[node name="HBox" type="HBoxContainer" parent="UI/Root/Layout/TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="AppTitle" type="Label" parent="UI/Root/Layout/TopBar/HBox"]
+layout_mode = 2
+theme_type_variation = &"AppTitle"
+text = "CS2 proto"
+
+[node name="DocName" type="Label" parent="UI/Root/Layout/TopBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Untitled layout"
+
+[node name="DirtyChip" type="Label" parent="UI/Root/Layout/TopBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"DirtyChip"
+text = "unsaved"
+
+[node name="Spacer" type="Control" parent="UI/Root/Layout/TopBar/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="UndoButton" type="Button" parent="UI/Root/Layout/TopBar/HBox"]
+unique_name_in_owner = true
+tooltip_text = "Undo (Ctrl+Z)"
+icon = ExtResource("8_x")
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"FlatButton"
+
+[node name="RedoButton" type="Button" parent="UI/Root/Layout/TopBar/HBox"]
+unique_name_in_owner = true
+tooltip_text = "Redo (Ctrl+Y)"
+icon = ExtResource("9_x")
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"FlatButton"
+
+[node name="Sep1" type="VSeparator" parent="UI/Root/Layout/TopBar/HBox"]
+layout_mode = 2
+
+[node name="ViewSeg" type="PanelContainer" parent="UI/Root/Layout/TopBar/HBox"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"SegmentGroup"
+
+[node name="HBox" type="HBoxContainer" parent="UI/Root/Layout/TopBar/HBox/ViewSeg"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="TopViewButton" type="Button" parent="UI/Root/Layout/TopBar/HBox/ViewSeg/HBox"]
+unique_name_in_owner = true
+tooltip_text = "Top-down orthographic view (Tab toggles)"
+icon = ExtResource("10_x")
+text = "Top"
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SegmentButton"
+toggle_mode = true
+
+[node name="FreeViewButton" type="Button" parent="UI/Root/Layout/TopBar/HBox/ViewSeg/HBox"]
+unique_name_in_owner = true
+tooltip_text = "Free fly camera (Tab toggles). Hold right mouse to look."
+icon = ExtResource("11_x")
+text = "Free"
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SegmentButton"
+toggle_mode = true
+
+[node name="Sep2" type="VSeparator" parent="UI/Root/Layout/TopBar/HBox"]
+layout_mode = 2
+
+[node name="FileMenu" type="MenuButton" parent="UI/Root/Layout/TopBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"FlatButton"
+text = "File"
+icon = ExtResource("12_x")
+flat = false
+tooltip_text = "New, open and save layouts (.json)"
+
+[node name="ExportButton" type="Button" parent="UI/Root/Layout/TopBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"PrimaryButton"
+tooltip_text = "Write the .vmap (and optionally compile). Ctrl+E"
+icon = ExtResource("13_x")
+text = "Export .vmap"
+
+[node name="Body" type="HBoxContainer" parent="UI/Root/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="Rail" type="PanelContainer" parent="UI/Root/Layout/Body"]
+layout_mode = 2
+theme_type_variation = &"RailPanel"
+
+[node name="VBox" type="VBoxContainer" parent="UI/Root/Layout/Body/Rail"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="New" type="Button" parent="UI/Root/TopBar/HBox"]
+[node name="SelectTool" type="Button" parent="UI/Root/Layout/Body/Rail/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
-tooltip_text = "New empty map"
-text = "New"
+focus_mode = 0
+tooltip_text = "Select (1): drag points, Shift+drag = vertical, Ctrl+click a line inserts a point."
+theme_type_variation = &"RailButton"
+toggle_mode = true
+icon = ExtResource("14_x")
+icon_alignment = 1
 
-[node name="Open" type="Button" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-tooltip_text = "Open a layout (.json)"
-text = "Open..."
-
-[node name="Save" type="Button" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-tooltip_text = "Save the layout (.json). Ctrl+S"
-text = "Save..."
-
-[node name="Export" type="Button" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-tooltip_text = "Write the .vmap (and optionally compile). Ctrl+E"
-text = "Export .vmap"
-
-[node name="Sep1" type="VSeparator" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-
-[node name="Select" type="Button" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-tooltip_text = "Select / drag points. Shift+drag = vertical. Ctrl+click an edge = insert point."
-text = "1 Select"
-
-[node name="Path" type="Button" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-tooltip_text = "Draw a corridor polyline at the working elevation."
-text = "2 Path"
-
-[node name="Floor" type="Button" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-tooltip_text = "Draw an extra walkable floor polygon."
-text = "3 Floor"
-
-[node name="Obstacle" type="Button" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-tooltip_text = "Draw a solid block (taller than 65u cannot be jumped on)."
-text = "4 Obstacle"
-
-[node name="Pit" type="Button" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-tooltip_text = "Draw a hole in the floor (height = depth, 0 = bottomless)."
-text = "5 Pit"
-
-[node name="SpawnT" type="Button" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-tooltip_text = "Place a Terrorist spawn."
-text = "6 T spawn"
-
-[node name="SpawnCT" type="Button" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-tooltip_text = "Place a Counter-Terrorist spawn."
-text = "7 CT spawn"
-
-[node name="Sep2" type="VSeparator" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-
-[node name="View" type="Button" parent="UI/Root/TopBar/HBox"]
-layout_mode = 2
-tooltip_text = "Toggle top-down orthographic / free fly camera (Tab)"
-text = "Top / Free view"
-
-[node name="Side" type="PanelContainer" parent="UI/Root"]
+[node name="Key" type="Label" parent="UI/Root/Layout/Body/Rail/VBox/SelectTool"]
 layout_mode = 1
-anchors_preset = 11
+anchors_preset = 3
 anchor_left = 1.0
+anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -320.0
-offset_top = 44.0
-offset_bottom = -30.0
+offset_left = -11.0
+offset_top = -15.0
+offset_right = -3.0
+offset_bottom = -1.0
 grow_horizontal = 0
-grow_vertical = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"KeyHint"
+text = "1"
+horizontal_alignment = 2
 
-[node name="Scroll" type="ScrollContainer" parent="UI/Root/Side"]
+[node name="PathTool" type="Button" parent="UI/Root/Layout/Body/Rail/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "Path (2): draw a corridor polyline at the working elevation."
+theme_type_variation = &"RailButton"
+toggle_mode = true
+icon = ExtResource("15_x")
+icon_alignment = 1
+theme_override_colors/icon_normal_color = Color(0.35, 0.85, 1, 1.0)
+theme_override_colors/icon_hover_color = Color(0.35, 0.85, 1, 1.0)
+theme_override_colors/icon_pressed_color = Color(0.35, 0.85, 1, 1.0)
+theme_override_colors/icon_hover_pressed_color = Color(0.35, 0.85, 1, 1.0)
+theme_override_colors/icon_focus_color = Color(0.35, 0.85, 1, 1.0)
+
+[node name="Key" type="Label" parent="UI/Root/Layout/Body/Rail/VBox/PathTool"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -11.0
+offset_top = -15.0
+offset_right = -3.0
+offset_bottom = -1.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"KeyHint"
+text = "2"
+horizontal_alignment = 2
+
+[node name="FloorTool" type="Button" parent="UI/Root/Layout/Body/Rail/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "Floor (3): draw an extra walkable floor polygon."
+theme_type_variation = &"RailButton"
+toggle_mode = true
+icon = ExtResource("16_x")
+icon_alignment = 1
+theme_override_colors/icon_normal_color = Color(0.6, 0.9, 0.6, 1.0)
+theme_override_colors/icon_hover_color = Color(0.6, 0.9, 0.6, 1.0)
+theme_override_colors/icon_pressed_color = Color(0.6, 0.9, 0.6, 1.0)
+theme_override_colors/icon_hover_pressed_color = Color(0.6, 0.9, 0.6, 1.0)
+theme_override_colors/icon_focus_color = Color(0.6, 0.9, 0.6, 1.0)
+
+[node name="Key" type="Label" parent="UI/Root/Layout/Body/Rail/VBox/FloorTool"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -11.0
+offset_top = -15.0
+offset_right = -3.0
+offset_bottom = -1.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"KeyHint"
+text = "3"
+horizontal_alignment = 2
+
+[node name="ObstacleTool" type="Button" parent="UI/Root/Layout/Body/Rail/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "Obstacle (4): solid block. Taller than 65u can't be jumped on."
+theme_type_variation = &"RailButton"
+toggle_mode = true
+icon = ExtResource("17_x")
+icon_alignment = 1
+theme_override_colors/icon_normal_color = Color(1, 0.6, 0.3, 1.0)
+theme_override_colors/icon_hover_color = Color(1, 0.6, 0.3, 1.0)
+theme_override_colors/icon_pressed_color = Color(1, 0.6, 0.3, 1.0)
+theme_override_colors/icon_hover_pressed_color = Color(1, 0.6, 0.3, 1.0)
+theme_override_colors/icon_focus_color = Color(1, 0.6, 0.3, 1.0)
+
+[node name="Key" type="Label" parent="UI/Root/Layout/Body/Rail/VBox/ObstacleTool"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -11.0
+offset_top = -15.0
+offset_right = -3.0
+offset_bottom = -1.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"KeyHint"
+text = "4"
+horizontal_alignment = 2
+
+[node name="PitTool" type="Button" parent="UI/Root/Layout/Body/Rail/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "Pit (5): hole in the floor. Height = depth, 0 = bottomless."
+theme_type_variation = &"RailButton"
+toggle_mode = true
+icon = ExtResource("18_x")
+icon_alignment = 1
+theme_override_colors/icon_normal_color = Color(0.85, 0.4, 0.9, 1.0)
+theme_override_colors/icon_hover_color = Color(0.85, 0.4, 0.9, 1.0)
+theme_override_colors/icon_pressed_color = Color(0.85, 0.4, 0.9, 1.0)
+theme_override_colors/icon_hover_pressed_color = Color(0.85, 0.4, 0.9, 1.0)
+theme_override_colors/icon_focus_color = Color(0.85, 0.4, 0.9, 1.0)
+
+[node name="Key" type="Label" parent="UI/Root/Layout/Body/Rail/VBox/PitTool"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -11.0
+offset_top = -15.0
+offset_right = -3.0
+offset_bottom = -1.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"KeyHint"
+text = "5"
+horizontal_alignment = 2
+
+[node name="Sep" type="HSeparator" parent="UI/Root/Layout/Body/Rail/VBox"]
+layout_mode = 2
+
+[node name="SpawnTTool" type="Button" parent="UI/Root/Layout/Body/Rail/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "T spawn (6): place a Terrorist spawn."
+theme_type_variation = &"RailButton"
+toggle_mode = true
+icon = ExtResource("19_x")
+icon_alignment = 1
+theme_override_colors/icon_normal_color = Color(0.95, 0.65, 0.2, 1.0)
+theme_override_colors/icon_hover_color = Color(0.95, 0.65, 0.2, 1.0)
+theme_override_colors/icon_pressed_color = Color(0.95, 0.65, 0.2, 1.0)
+theme_override_colors/icon_hover_pressed_color = Color(0.95, 0.65, 0.2, 1.0)
+theme_override_colors/icon_focus_color = Color(0.95, 0.65, 0.2, 1.0)
+
+[node name="Key" type="Label" parent="UI/Root/Layout/Body/Rail/VBox/SpawnTTool"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -11.0
+offset_top = -15.0
+offset_right = -3.0
+offset_bottom = -1.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"KeyHint"
+text = "6"
+horizontal_alignment = 2
+
+[node name="SpawnCTTool" type="Button" parent="UI/Root/Layout/Body/Rail/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "CT spawn (7): place a Counter-Terrorist spawn."
+theme_type_variation = &"RailButton"
+toggle_mode = true
+icon = ExtResource("20_x")
+icon_alignment = 1
+theme_override_colors/icon_normal_color = Color(0.45, 0.62, 1, 1.0)
+theme_override_colors/icon_hover_color = Color(0.45, 0.62, 1, 1.0)
+theme_override_colors/icon_pressed_color = Color(0.45, 0.62, 1, 1.0)
+theme_override_colors/icon_hover_pressed_color = Color(0.45, 0.62, 1, 1.0)
+theme_override_colors/icon_focus_color = Color(0.45, 0.62, 1, 1.0)
+
+[node name="Key" type="Label" parent="UI/Root/Layout/Body/Rail/VBox/SpawnCTTool"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -11.0
+offset_top = -15.0
+offset_right = -3.0
+offset_bottom = -1.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"KeyHint"
+text = "7"
+horizontal_alignment = 2
+
+[node name="Center" type="VBoxContainer" parent="UI/Root/Layout/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="ViewArea" type="Control" parent="UI/Root/Layout/Body/Center"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="InfoChip" type="PanelContainer" parent="UI/Root/Layout/Body/Center/ViewArea"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 12.0
+mouse_filter = 2
+theme_type_variation = &"Chip"
+
+[node name="ToolInfo" type="Label" parent="UI/Root/Layout/Body/Center/ViewArea/InfoChip"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Select"
+
+[node name="WarningButton" type="Button" parent="UI/Root/Layout/Body/Center/ViewArea"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -130.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = 40.0
+grow_horizontal = 0
+focus_mode = 0
+theme_type_variation = &"WarningChip"
+toggle_mode = true
+icon = ExtResource("21_x")
+text = "0 warnings"
+alignment = 1
+tooltip_text = "Show build warnings"
+
+[node name="WarningsPopover" type="PanelContainer" parent="UI/Root/Layout/Body/Center/ViewArea"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -372.0
+offset_top = 46.0
+offset_right = -12.0
+offset_bottom = 120.0
+grow_horizontal = 0
+theme_type_variation = &"PopoverPanel"
+
+[node name="VBox" type="VBoxContainer" parent="UI/Root/Layout/Body/Center/ViewArea/WarningsPopover"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Header" type="HBoxContainer" parent="UI/Root/Layout/Body/Center/ViewArea/WarningsPopover/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="UI/Root/Layout/Body/Center/ViewArea/WarningsPopover/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"TitleLabel"
+text = "Build warnings"
+
+[node name="WarningsClose" type="Button" parent="UI/Root/Layout/Body/Center/ViewArea/WarningsPopover/VBox/Header"]
+unique_name_in_owner = true
+tooltip_text = "Close"
+icon = ExtResource("22_x")
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"FlatButton"
+
+[node name="Warnings" type="Label" parent="UI/Root/Layout/Body/Center/ViewArea/WarningsPopover/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(330, 0)
+layout_mode = 2
+autowrap_mode = 3
+text = ""
+
+[node name="ProfilePanel" type="PanelContainer" parent="UI/Root/Layout/Body/Center"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"BottomPanel"
+
+[node name="HBox" type="HBoxContainer" parent="UI/Root/Layout/Body/Center/ProfilePanel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Side" type="VBoxContainer" parent="UI/Root/Layout/Body/Center/ProfilePanel/HBox"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Header" type="Label" parent="UI/Root/Layout/Body/Center/ProfilePanel/HBox/Side"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Path profile"
+
+[node name="ProfileKind" type="OptionButton" parent="UI/Root/Layout/Body/Center/ProfilePanel/HBox/Side"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "Which value the curve controls along the selected path."
+
+[node name="Row" type="HBoxContainer" parent="UI/Root/Layout/Body/Center/ProfilePanel/HBox/Side"]
+layout_mode = 2
+
+[node name="ProfileEnabled" type="CheckBox" parent="UI/Root/Layout/Body/Center/ProfilePanel/HBox/Side/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+tooltip_text = "Use this curve. Editing the curve turns it on."
+text = "On"
+
+[node name="ProfileReset" type="Button" parent="UI/Root/Layout/Body/Center/ProfilePanel/HBox/Side/Row"]
+unique_name_in_owner = true
+tooltip_text = "Flatten this curve and turn it off."
+text = "Reset"
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"FlatButton"
+
+[node name="Hint" type="Label" parent="UI/Root/Layout/Body/Center/ProfilePanel/HBox/Side"]
+layout_mode = 2
+theme_type_variation = &"HintLabel"
+autowrap_mode = 3
+text = "Click adds a key, drag moves it, right-click removes it. Left = path start."
+
+[node name="ProfileEditor" type="Control" parent="UI/Root/Layout/Body/Center/ProfilePanel/HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 128)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("7_x")
+
+[node name="Inspector" type="PanelContainer" parent="UI/Root/Layout/Body"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+theme_type_variation = &"InspectorPanel"
+
+[node name="Scroll" type="ScrollContainer" parent="UI/Root/Layout/Body/Inspector"]
 layout_mode = 2
 horizontal_scroll_mode = 0
 
-[node name="VBox" type="VBoxContainer" parent="UI/Root/Side/Scroll"]
+[node name="VBox" type="VBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 6
+theme_override_constants/separation = 0
 
-[node name="SelectionLabel" type="Label" parent="UI/Root/Side/Scroll/VBox"]
+[node name="SelMargin" type="MarginContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox"]
 layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 4
+
+[node name="SelectionCard" type="PanelContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/SelMargin"]
+layout_mode = 2
+theme_type_variation = &"SelectionCard"
+
+[node name="HBox" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/SelMargin/SelectionCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SelectionIcon" type="TextureRect" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/SelMargin/SelectionCard/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("15_x")
+stretch_mode = 5
+
+[node name="Text" type="VBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/SelMargin/SelectionCard/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 0
+
+[node name="SelectionLabel" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/SelMargin/SelectionCard/HBox/Text"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"TitleLabel"
 text = "Nothing selected"
 autowrap_mode = 3
 
-[node name="Grid" type="GridContainer" parent="UI/Root/Side/Scroll/VBox"]
+[node name="SelectionSub" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/SelMargin/SelectionCard/HBox/Text"]
+unique_name_in_owner = true
 layout_mode = 2
-columns = 2
+theme_type_variation = &"MutedLabel"
+text = ""
+autowrap_mode = 3
 
-[node name="EditHeader" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="PropsSection" type="FoldableContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.55, 0.8, 1, 1)
-text = "Editing"
+focus_mode = 0
+folded = false
+title = "Properties"
 
-[node name="EditPad" type="Control" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="Rows" type="VBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection"]
 layout_mode = 2
+theme_override_constants/separation = 6
 
-[node name="WorkElevationLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="KindRow" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "Working elevation"
+theme_override_constants/separation = 10
 
-[node name="WorkElevation" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="Label" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/KindRow"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Kind"
+
+[node name="RegionKind" type="OptionButton" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/KindRow"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-tooltip_text = "Height new points are drawn at. PgUp/PgDn or Shift+wheel."
+focus_mode = 0
+
+[node name="ZRow" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ZLabel" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/ZRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Z"
+
+[node name="PointZ" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/ZRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
 min_value = -4096.0
 max_value = 4096.0
-allow_greater = true
 allow_lesser = true
+allow_greater = true
 suffix = "u"
 
-[node name="GridSizeLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="HeightRow" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "Grid"
+theme_override_constants/separation = 10
 
-[node name="GridSize" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="HeightLabel" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/HeightRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Height"
+
+[node name="RegionHeight" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/HeightRow"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-tooltip_text = "Snap size. Hold Alt to place off-grid."
-max_value = 512.0
-value = 16.0
+max_value = 4096.0
+value = 128.0
+tooltip_text = "Obstacle: height of the block. Pit: depth (0 = bottomless)."
+allow_greater = true
 suffix = "u"
 
-[node name="SelHeader" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="WidthRow" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.55, 0.8, 1, 1)
-text = "Selection"
+theme_override_constants/separation = 10
 
-[node name="SelPad" type="Control" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="WidthLabel" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/WidthRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 0)
 layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Width"
 
-[node name="PathWidthLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
-layout_mode = 2
-text = "Path width"
-
-[node name="PathWidth" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="PathWidth" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/WidthRow"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 min_value = 32.0
@@ -260,94 +789,185 @@ value = 192.0
 allow_greater = true
 suffix = "u"
 
-[node name="EndpointDepthLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="CornerRow" type="VBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "Endpoint depth"
+theme_override_constants/separation = 4
 
-[node name="EndpointDepth" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="Label" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/CornerRow"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Corner  (C toggles smooth)"
+
+[node name="CornerSeg" type="PanelContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/CornerRow"]
+layout_mode = 2
+theme_type_variation = &"SegmentGroup"
+
+[node name="HBox" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/CornerRow/CornerSeg"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="CornerSharp" type="Button" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/CornerRow/CornerSeg/HBox"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+tooltip_text = "Edges meet in a point (corners sharper than ~30° are bevelled)."
+text = "Sharp"
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SegmentButton"
+toggle_mode = true
+
+[node name="CornerBevel" type="Button" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/CornerRow/CornerSeg/HBox"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+tooltip_text = "Corner cut straight."
+text = "Bevel"
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SegmentButton"
+toggle_mode = true
+
+[node name="CornerRound" type="Button" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/CornerRow/CornerSeg/HBox"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+tooltip_text = "Arc around the point."
+text = "Round"
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SegmentButton"
+toggle_mode = true
+
+[node name="CornerSmooth" type="Button" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/CornerRow/CornerSeg/HBox"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+tooltip_text = "Bezier curve through the point; drag the pink handles to shape it."
+text = "Smooth"
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SegmentButton"
+toggle_mode = true
+
+[node name="EndpointRow" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Label" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/EndpointRow"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "End depth"
+
+[node name="EndpointDepth" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/EndpointRow"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-tooltip_text = "How far the floor extends past this end point (first or last point of a path). 0 = stop at the point. Independent of path width."
 max_value = 2048.0
 step = 8.0
+tooltip_text = "How far the floor runs past this end point. 0 = stop at the point. Independent of path width."
 allow_greater = true
 suffix = "u"
 
-[node name="PointCornerLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="YawRow" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "Corner (C)"
+theme_override_constants/separation = 10
 
-[node name="PointCorner" type="OptionButton" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="YawLabel" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/YawRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 0)
 layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "How the path turns at this point (or every point when the whole path is selected). Sharp: edges meet in a point. Bevel: corner cut straight. Round: arc around the point. Smooth: Bezier curve through the point; drag the handles to shape it. C toggles Smooth."
+theme_type_variation = &"MutedLabel"
+text = "Yaw"
 
-[node name="RegionKindLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
-layout_mode = 2
-text = "Region kind"
-
-[node name="RegionKind" type="OptionButton" parent="UI/Root/Side/Scroll/VBox/Grid"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="PointZLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
-layout_mode = 2
-text = "Z / elevation"
-
-[node name="PointZ" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = -4096.0
-max_value = 4096.0
-allow_greater = true
-allow_lesser = true
-suffix = "u"
-
-[node name="RegionHeightLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
-layout_mode = 2
-text = "Height / depth"
-
-[node name="RegionHeight" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
-layout_mode = 2
-size_flags_horizontal = 3
-max_value = 4096.0
-value = 128.0
-allow_greater = true
-suffix = "u"
-
-[node name="SpawnYawLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
-layout_mode = 2
-text = "Spawn yaw"
-
-[node name="SpawnYaw" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="SpawnYaw" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/YawRow"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 min_value = -360.0
 max_value = 360.0
 step = 15.0
-suffix = "deg"
+suffix = "°"
 
-[node name="BuildHeader" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="DrawSection" type="FoldableContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.55, 0.8, 1, 1)
-text = "Build"
+focus_mode = 0
+folded = false
+title = "Drawing"
 
-[node name="BuildPad" type="Control" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="Rows" type="VBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/DrawSection"]
 layout_mode = 2
+theme_override_constants/separation = 6
 
-[node name="PerimeterWallsLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="WorkRow" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/DrawSection/Rows"]
 layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Label" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/DrawSection/Rows/WorkRow"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Elevation"
+
+[node name="WorkElevation" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/DrawSection/Rows/WorkRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = -4096.0
+max_value = 4096.0
+allow_lesser = true
+tooltip_text = "Height new points are drawn at. PgUp/PgDn or Shift+wheel."
+allow_greater = true
+suffix = "u"
+
+[node name="GridRow" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/DrawSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Label" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/DrawSection/Rows/GridRow"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Grid"
+
+[node name="GridSize" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/DrawSection/Rows/GridRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 512.0
+value = 16.0
+suffix = "u"
+tooltip_text = "Snap size. Hold Alt to place off-grid."
+
+[node name="BuildSection" type="FoldableContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox"]
+layout_mode = 2
+focus_mode = 0
+folded = false
+title = "Build"
+
+[node name="Rows" type="VBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/BuildSection"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PerimeterWalls" type="CheckBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/BuildSection/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+button_pressed = true
 text = "Perimeter walls"
 
-[node name="PerimeterWalls" type="CheckBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="WallRow" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/BuildSection/Rows"]
 layout_mode = 2
-button_pressed = true
+theme_override_constants/separation = 10
 
-[node name="WallHeightLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="Label" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/BuildSection/Rows/WallRow"]
+custom_minimum_size = Vector2(96, 0)
 layout_mode = 2
+theme_type_variation = &"MutedLabel"
 text = "Wall height"
 
-[node name="WallHeight" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="WallHeight" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/BuildSection/Rows/WallRow"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 min_value = 16.0
@@ -356,108 +976,100 @@ step = 8.0
 value = 192.0
 suffix = "u"
 
-[node name="FloorThicknessLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="FloorRow" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/BuildSection/Rows"]
 layout_mode = 2
-text = "Floor thickness"
+theme_override_constants/separation = 10
 
-[node name="FloorThickness" type="SpinBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="Label" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/BuildSection/Rows/FloorRow"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Floor"
+
+[node name="FloorThickness" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/BuildSection/Rows/FloorRow"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 min_value = 1.0
 max_value = 256.0
 value = 16.0
 suffix = "u"
+tooltip_text = "Floor thickness"
 
-[node name="ProfilePanel" type="VBoxContainer" parent="UI/Root/Side/Scroll/VBox"]
+[node name="ExportSection" type="FoldableContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox"]
 layout_mode = 2
+focus_mode = 0
+folded = true
+title = "Export"
 
-[node name="ProfileHeader" type="Label" parent="UI/Root/Side/Scroll/VBox/ProfilePanel"]
+[node name="Rows" type="VBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/ExportSection"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.55, 0.8, 1, 1)
-text = "Path profile (along its length)"
+theme_override_constants/separation = 6
 
-[node name="ProfileRow" type="HBoxContainer" parent="UI/Root/Side/Scroll/VBox/ProfilePanel"]
+[node name="VmapRow" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/ExportSection/Rows"]
 layout_mode = 2
+theme_override_constants/separation = 4
 
-[node name="ProfileKind" type="OptionButton" parent="UI/Root/Side/Scroll/VBox/ProfilePanel/ProfileRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "Which value the curve below controls along the selected path."
-
-[node name="ProfileEnabled" type="CheckBox" parent="UI/Root/Side/Scroll/VBox/ProfilePanel/ProfileRow"]
-layout_mode = 2
-tooltip_text = "Use this curve. Editing the curve turns it on."
-text = "On"
-
-[node name="ProfileReset" type="Button" parent="UI/Root/Side/Scroll/VBox/ProfilePanel/ProfileRow"]
-layout_mode = 2
-tooltip_text = "Flatten this curve and turn it off."
-text = "Reset"
-
-[node name="ProfileEditor" type="Control" parent="UI/Root/Side/Scroll/VBox/ProfilePanel"]
-custom_minimum_size = Vector2(280, 130)
-layout_mode = 2
-script = ExtResource("7_curve")
-
-[node name="ProfileHint" type="Label" parent="UI/Root/Side/Scroll/VBox/ProfilePanel"]
-custom_minimum_size = Vector2(280, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 0.55)
-theme_override_font_sizes/font_size = 12
-text = "Click to add a key, drag to move it, right-click to remove it. Left = path start, right = end."
-autowrap_mode = 3
-
-[node name="ExportHeader" type="Label" parent="UI/Root/Side/Scroll/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.55, 0.8, 1, 1)
-text = "Export target (.vmap)"
-
-[node name="VmapRow" type="HBoxContainer" parent="UI/Root/Side/Scroll/VBox"]
-layout_mode = 2
-
-[node name="VmapPath" type="LineEdit" parent="UI/Root/Side/Scroll/VBox/VmapRow"]
+[node name="VmapPath" type="LineEdit" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/ExportSection/Rows/VmapRow"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 placeholder_text = "content/csgo_addons/<addon>/maps/name.vmap"
 
-[node name="Browse" type="Button" parent="UI/Root/Side/Scroll/VBox/VmapRow"]
+[node name="BrowseVmap" type="Button" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/ExportSection/Rows/VmapRow"]
+unique_name_in_owner = true
+tooltip_text = "Choose the .vmap target"
+icon = ExtResource("12_x")
 layout_mode = 2
-text = "..."
+focus_mode = 0
+theme_type_variation = &"FlatButton"
 
-[node name="ConvertBinary" type="CheckBox" parent="UI/Root/Side/Scroll/VBox"]
+[node name="ConvertBinary" type="CheckBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/ExportSection/Rows"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "Convert to binary DMX (dmxconvert)"
+focus_mode = 0
+text = "Convert to binary DMX"
+tooltip_text = "Runs dmxconvert so the file matches what Hammer saves."
 
-[node name="CompileAfter" type="CheckBox" parent="UI/Root/Side/Scroll/VBox"]
+[node name="CompileAfter" type="CheckBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/ExportSection/Rows"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "Compile after export (resourcecompiler)"
+focus_mode = 0
+text = "Compile after export"
+tooltip_text = "Runs resourcecompiler (no lighting bake) so `map <name>` works in CS2."
 
-[node name="WarningsHeader" type="Label" parent="UI/Root/Side/Scroll/VBox"]
+[node name="StatusBar" type="PanelContainer" parent="UI/Root/Layout"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.8, 0.4, 1)
-text = "Warnings"
+theme_type_variation = &"StatusBar"
 
-[node name="Warnings" type="Label" parent="UI/Root/Side/Scroll/VBox"]
-custom_minimum_size = Vector2(280, 0)
+[node name="HBox" type="HBoxContainer" parent="UI/Root/Layout/StatusBar"]
 layout_mode = 2
-autowrap_mode = 3
+theme_override_constants/separation = 18
 
-[node name="StatusBar" type="PanelContainer" parent="UI/Root"]
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_top = -28.0
-grow_horizontal = 2
-grow_vertical = 0
-
-[node name="Status" type="Label" parent="UI/Root/StatusBar"]
+[node name="Status" type="Label" parent="UI/Root/Layout/StatusBar/HBox"]
+unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"MutedLabel"
 text = "Ready"
 text_overrun_behavior = 3
 
+[node name="LastExport" type="Label" parent="UI/Root/Layout/StatusBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SuccessLabel"
+text = ""
+
+[node name="CursorLabel" type="Label" parent="UI/Root/Layout/StatusBar/HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+theme_type_variation = &"MonoLabel"
+text = ""
+horizontal_alignment = 2
+
 [node name="OpenDialog" type="FileDialog" parent="UI/Root"]
+unique_name_in_owner = true
 title = "Open layout"
 size = Vector2i(900, 600)
 file_mode = 0
@@ -466,6 +1078,7 @@ filters = PackedStringArray("*.json ; Map layout")
 use_native_dialog = true
 
 [node name="SaveDialog" type="FileDialog" parent="UI/Root"]
+unique_name_in_owner = true
 title = "Save layout"
 size = Vector2i(900, 600)
 file_mode = 4
@@ -474,6 +1087,7 @@ filters = PackedStringArray("*.json ; Map layout")
 use_native_dialog = true
 
 [node name="ExportDialog" type="FileDialog" parent="UI/Root"]
+unique_name_in_owner = true
 title = "Export .vmap"
 size = Vector2i(900, 600)
 file_mode = 4

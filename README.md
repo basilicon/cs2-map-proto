@@ -20,7 +20,7 @@ Perimeter walls are generated around everything walkable. Each wall takes its he
 
 ### Path profiles
 
-With a path selected, the **Path profile** panel edits a curve over the path's length (left = first point,
+With a path selected, the **Path profile** panel under the viewport edits a curve over the path's length (left = first point,
 right = last point). Pick which value it controls:
 
 | Curve | Meaning |
@@ -31,6 +31,14 @@ right = last point). Pick which value it controls:
 
 Click the graph to add a key, drag keys, right-click a key to remove it. Editing a curve switches it on; the
 checkbox toggles it and Reset flattens it. Curves are saved in the layout file.
+
+## Layout
+
+- **Top bar**: file name (with an *unsaved* marker), undo/redo, Top/Free camera switch, the File menu (new, open, save, save as) and **Export .vmap**.
+- **Tool rail** (left): the seven tools, coloured like their shapes in the viewport, with their hotkeys.
+- **Inspector** (right): a card naming the selection, then only the properties that apply to it; Drawing, Build and Export sections fold away.
+- **Viewport chips**: current tool, working elevation and grid (top left); build warnings (top right, click for the list; hidden when there are none).
+- **Status bar**: hints and results, last export time, cursor position (and Δz while dragging vertically).
 
 ## Controls
 
@@ -51,7 +59,7 @@ checkbox toggles it and Reset flattens it. Curves are saved in the layout file.
 | Path tool: click an existing path point | Start from / snap to it: from an end point it **extends** that path, elsewhere it starts a **branch** |
 | B | Branch (or extend) from the selected path point |
 | "Endpoint depth" field | With a path's first or last point selected: how far the floor runs past that end (0 = stop at the point). Separate per end and independent of width. |
-| "Corner" dropdown | How the path turns at the selected point (or every point of a selected path): **Sharp** (edges meet in a point; corners sharper than ~30° are bevelled), **Bevel** (cut straight), **Round** (arc), **Smooth** (Bezier curve; drag the pink handles to shape it) |
+| "Corner" buttons | How the path turns at the selected point (or every point of a selected path): **Sharp** (edges meet in a point; corners sharper than ~30° are bevelled), **Bevel** (cut straight), **Round** (arc), **Smooth** (Bezier curve; drag the pink handles to shape it) |
 | C | Toggle the selected point (or whole path) between Smooth and its Sharp/Bevel/Round style |
 | Del / Shift+Del | Delete point / whole shape |
 
@@ -86,4 +94,5 @@ Headless: `Godot_..._console.exe --headless --path . -- --export <layout.json|de
 - `src/Model` – the document (JSON-serialisable).
 - `src/Geometry` – `MapBuilder` turns the document into closed meshes (Clipper2 for 2D booleans, hole bridging + ear clipping, convex face merge).
 - `src/Export` – DMX keyvalues2 writer, `.vmap` (CMapRootElement / CMapMesh / half-edge CDmePolygonMesh) exporter, CS2 tool runner.
-- `src/Editor` – Godot nodes: `EditorRoot` (input, tools, undo), `EditorUi` (`[Export]` bindings to the premade controls in `scenes/Main.tscn`), camera, preview, overlay.
+- `src/Editor` – Godot nodes: `EditorRoot` (input, tools, undo), `EditorUi` (`[Export]` bindings to the premade controls in `scenes/Main.tscn`, found by unique name), camera, preview, overlay.
+- `ui/` – `editor_theme.tres` (the dark theme, set as the project's custom theme; style variations such as `RailButton`, `SegmentButton`, `Chip`) and the SVG icons.

@@ -64,6 +64,7 @@ public partial class EditorRoot : Node3D
     {
         if (TryRunCli()) return;
 
+        Ui.SetTool(CurrentTool);
         Ui.ToolChosen += SetTool;
         Ui.NewRequested += () => { PushUndo(); Doc = new MapDocument(); _docPath = null; AfterDocReplaced("New map"); };
         Ui.OpenChosen += path =>
@@ -72,10 +73,13 @@ public partial class EditorRoot : Node3D
             catch (Exception e) { Ui.SetStatus($"Open failed: {e.Message}"); }
         };
         Ui.SaveChosen += SaveTo;
+        Ui.SaveRequested += SaveCurrent;
         Ui.ExportRequested += () => _ = ExportAsync();
-        Ui.ViewToggled += () => Rig.ToggleMode();
+        Ui.UndoRequested += Undo;
+        Ui.RedoRequested += Redo;
+        Ui.ViewModeChosen += top => { if (Rig.IsTopDown != top) Rig.ToggleMode(); };
         Ui.PropertiesEdited += ApplyPropertyEdits;
-        Ui.SettingsEdited += ApplySettingsEdits;
+        Ui.SettingsEdited += () => { ApplySettingsEdits(); MarkUnsaved(); };
         Rig.RightClicked += HandleRightClick;
         Ui.ProfileKindChanged += RefreshProfileUi;
         Ui.ProfileEditStarted += PushUndo;
@@ -127,10 +131,25 @@ public partial class EditorRoot : Node3D
         RebuildNow();
         if (Built != null && Built.Meshes.Count > 0) FrameAll();
         Ui.SetStatus(status);
+        _unsaved = false;
+        RefreshDocInfo();
     }
+
+    bool _unsaved;
+
+    void MarkUnsaved()
+    {
+        if (_unsaved) return;
+        _unsaved = true;
+        RefreshDocInfo();
+    }
+
+    void RefreshDocInfo() =>
+        Ui.SetDocInfo(_docPath != null ? System.IO.Path.GetFileName(_docPath) : "Untitled layout", _unsaved);
 
     void PushUndo()
     {
+        MarkUnsaved();
         _undo.Push(Doc.ToJson());
         _redo.Clear();
         if (_undo.Count > 200) { var keep = _undo.Take(200).Reverse().ToList(); _undo.Clear(); keep.ForEach(_undo.Push); }
@@ -141,6 +160,7 @@ public partial class EditorRoot : Node3D
         if (_undo.Count == 0) return;
         _redo.Push(Doc.ToJson());
         Doc = MapDocument.FromJson(_undo.Pop());
+        MarkUnsaved();
         AfterEdit(keepSelection: false);
         Ui.SetStatus("Undo");
     }
@@ -150,6 +170,7 @@ public partial class EditorRoot : Node3D
         if (_redo.Count == 0) return;
         _undo.Push(Doc.ToJson());
         Doc = MapDocument.FromJson(_redo.Pop());
+        MarkUnsaved();
         AfterEdit(keepSelection: false);
         Ui.SetStatus("Redo");
     }
@@ -163,8 +184,14 @@ public partial class EditorRoot : Node3D
 
     void SaveTo(string path)
     {
-        try { Doc.Save(path); _docPath = path; Ui.SetStatus($"Saved {path}"); }
+        try { Doc.Save(path); _docPath = path; _unsaved = false; RefreshDocInfo(); Ui.SetStatus($"Saved {path}"); }
         catch (Exception e) { Ui.SetStatus($"Save failed: {e.Message}"); }
+    }
+
+    void SaveCurrent()
+    {
+        if (_docPath != null) SaveTo(_docPath);
+        else Ui.SaveDialog.PopupCentered(new Vector2I(900, 600));
     }
 
     void RebuildNow()
@@ -175,11 +202,11 @@ public partial class EditorRoot : Node3D
         {
             Built = MapBuilder.Build(Doc);
             Preview.Show(Built);
-            Ui.Warnings.Text = Built.Warnings.Count == 0 ? "No warnings." : string.Join("\n", Built.Warnings.Distinct().Select(w => "• " + w));
+            Ui.SetWarnings(Built.Warnings.Distinct().ToList());
         }
         catch (Exception e)
         {
-            Ui.Warnings.Text = "Build error: " + e.Message;
+            Ui.SetWarnings(Array.Empty<string>(), "Build error: " + e.Message);
             GD.PrintErr(e);
         }
     }
@@ -223,9 +250,10 @@ public partial class EditorRoot : Node3D
                 return msg;
             });
             Ui.SetStatus(result);
-            if (_docPath != null) Doc.Save(_docPath);
+            Ui.SetLastExport(true, $"Exported {DateTime.Now:HH:mm}");
+            if (_docPath != null) { Doc.Save(_docPath); _unsaved = false; RefreshDocInfo(); }
         }
-        catch (Exception e) { Ui.SetStatus($"Export failed: {e.Message}"); GD.PrintErr(e); }
+        catch (Exception e) { Ui.SetStatus($"Export failed: {e.Message}"); Ui.SetLastExport(false, "Export failed"); GD.PrintErr(e); }
         finally { _busy = false; }
     }
 
@@ -441,9 +469,7 @@ public partial class EditorRoot : Node3D
             case Key.Z when ctrl && k.ShiftPressed: Redo(); break;
             case Key.Z when ctrl: Undo(); break;
             case Key.Y when ctrl: Redo(); break;
-            case Key.S when ctrl:
-                if (_docPath != null) SaveTo(_docPath); else Ui.SaveDialog.PopupCentered(new Vector2I(900, 600));
-                break;
+            case Key.S when ctrl: SaveCurrent(); break;
             case Key.E when ctrl: _ = ExportAsync(); break;
             case Key.Tab: Rig.ToggleMode(); break;
             case Key.F when !ctrl: FrameAll(); break;
@@ -865,53 +891,80 @@ public partial class EditorRoot : Node3D
     {
         Ui.Silently(() =>
         {
-            Ui.PathWidth.Editable = Ui.RegionHeight.Editable = Ui.PointZ.Editable = Ui.SpawnYaw.Editable = false;
-            Ui.EndpointDepth.Editable = false;
-            Ui.RegionKind.Disabled = true;
-            Ui.PointCorner.Disabled = true;
-            Ui.PointCorner.Select(-1);
+            // Only the rows that apply to the selection are shown.
+            Ui.KindRow.Visible = Ui.ZRow.Visible = Ui.HeightRow.Visible = Ui.WidthRow.Visible = false;
+            Ui.CornerRow.Visible = Ui.EndpointRow.Visible = Ui.YawRow.Visible = false;
+            Ui.PropsSection.Title = "Properties";
+            Ui.WidthLabel.Text = "Width";
+            Ui.YawLabel.Text = "Yaw";
             switch (Selected.Type)
             {
                 case HandleType.PathPoint or HandleType.TangentOut or HandleType.TangentIn:
+                {
                     var p = Doc.Paths[Selected.Shape];
                     int pi = Math.Max(0, Selected.Point);
-                    Ui.SelectionLabel.Text = Selected.IsWhole
-                        ? $"Path {Selected.Shape} (whole path, {p.Points.Count} points)"
-                        : $"Path {Selected.Shape}, point {pi}/{p.Points.Count - 1}";
-                    Ui.PathWidth.Value = p.Width; Ui.PathWidth.Editable = true;
-                    Ui.PointZ.Value = p.Points[pi].Z; Ui.PointZ.Editable = true;
+                    bool endpoint = !Selected.IsWhole && Selected.Type == HandleType.PathPoint && IsEndpoint(p, pi);
+                    string sub;
+                    if (Selected.IsWhole) sub = $"Whole path · {p.Points.Count} points";
+                    else
+                    {
+                        sub = endpoint ? (pi == 0 ? "Start point" : "End point") : "Point";
+                        if (Selected.IsTangent) sub = "Curve handle";
+                        if (Selected.Type == HandleType.PathPoint && MoveSet(Selected, false).Count > 1) sub += " · welded";
+                    }
+                    Ui.SetSelectionHeader(Tool.Path,
+                        Selected.IsWhole ? $"Path {Selected.Shape}" : $"Path {Selected.Shape} · point {pi} of {p.Points.Count - 1}", sub);
+                    Ui.PropsSection.Title = Selected.IsWhole ? "Path" : "Path point";
+                    Ui.WidthRow.Visible = true; Ui.PathWidth.Value = p.Width;
+                    Ui.ZRow.Visible = true; Ui.ZLabel.Text = Selected.IsWhole ? "Z (first point)" : "Z";
+                    Ui.PointZ.Value = p.Points[pi].Z;
+                    Ui.CornerRow.Visible = true;
                     if (Selected.IsWhole)
                     {
                         // Whole path: show the shared corner option, or nothing when points differ.
                         var ids = Enumerable.Range(0, p.Points.Count).Select(i => CornerId(p, i)).Distinct().ToList();
-                        Ui.PointCorner.Select(ids.Count == 1 ? ids[0] : -1);
+                        Ui.SetCorner(ids.Count == 1 ? ids[0] : -1);
                     }
-                    else Ui.PointCorner.Select(CornerId(p, pi));
-                    Ui.PointCorner.Disabled = false;
-                    if (!Selected.IsWhole && Selected.Type == HandleType.PathPoint && IsEndpoint(p, pi))
+                    else Ui.SetCorner(CornerId(p, pi));
+                    if (endpoint)
                     {
+                        Ui.EndpointRow.Visible = true;
                         Ui.EndpointDepth.Value = (pi == 0 ? p.StartDepth : p.EndDepth) ?? p.Width * 0.5f;
-                        Ui.EndpointDepth.Editable = true;
                     }
                     break;
+                }
                 case HandleType.RegionPoint:
+                {
                     var r = Doc.Regions[Selected.Shape];
-                    Ui.SelectionLabel.Text = Selected.IsWhole
-                        ? $"{r.Kind} region {Selected.Shape} (whole shape)"
-                        : $"{r.Kind} region {Selected.Shape}, point {Selected.Point}";
-                    Ui.RegionKind.Selected = (int)r.Kind; Ui.RegionKind.Disabled = false;
-                    Ui.PointZ.Value = r.Elevation; Ui.PointZ.Editable = true;
-                    Ui.RegionHeight.Value = r.Height; Ui.RegionHeight.Editable = r.Kind != Model.RegionKind.Floor;
+                    var tool = r.Kind switch { Model.RegionKind.Floor => Tool.Floor, Model.RegionKind.Obstacle => Tool.Obstacle, _ => Tool.Pit };
+                    Ui.SetSelectionHeader(tool, $"{r.Kind} {Selected.Shape}",
+                        Selected.IsWhole ? $"Whole shape · {r.Points.Count} points" : $"Point {Selected.Point} of {r.Points.Count - 1}");
+                    Ui.PropsSection.Title = r.Kind.ToString();
+                    Ui.KindRow.Visible = true; Ui.RegionKind.Selected = (int)r.Kind;
+                    Ui.ZRow.Visible = true; Ui.ZLabel.Text = "Elevation"; Ui.PointZ.Value = r.Elevation;
+                    if (r.Kind != Model.RegionKind.Floor)
+                    {
+                        Ui.HeightRow.Visible = true;
+                        Ui.HeightLabel.Text = r.Kind == Model.RegionKind.Pit ? "Depth" : "Height";
+                        Ui.RegionHeight.Value = r.Height;
+                    }
                     break;
+                }
                 case HandleType.Spawn:
+                {
                     var s = Doc.Spawns[Selected.Shape];
-                    Ui.SelectionLabel.Text = $"{s.Team} spawn {Selected.Shape}";
-                    Ui.PointZ.Value = s.Position.Z; Ui.PointZ.Editable = true;
-                    Ui.SpawnYaw.Value = s.Yaw; Ui.SpawnYaw.Editable = true;
+                    Ui.SetSelectionHeader(s.Team == Team.T ? Tool.SpawnT : Tool.SpawnCT, $"{s.Team} spawn {Selected.Shape}",
+                        $"x {s.Position.X:0}  y {s.Position.Y:0}");
+                    Ui.PropsSection.Title = "Spawn";
+                    Ui.ZRow.Visible = true; Ui.ZLabel.Text = "Z"; Ui.PointZ.Value = s.Position.Z;
+                    Ui.YawRow.Visible = true; Ui.SpawnYaw.Value = s.Yaw;
                     break;
+                }
                 default:
-                    Ui.SelectionLabel.Text = "Nothing selected (width/yaw apply to new shapes)";
-                    Ui.PathWidth.Editable = Ui.SpawnYaw.Editable = true;
+                    Ui.SetSelectionHeader(null, "Nothing selected", "Click a point to edit it, or a line to pick the whole shape.");
+                    Ui.PropsSection.Title = "New shapes";
+                    Ui.WidthRow.Visible = true; Ui.WidthLabel.Text = "Path width";
+                    Ui.YawRow.Visible = true; Ui.YawLabel.Text = "Spawn yaw";
                     break;
             }
         });
@@ -1003,7 +1056,7 @@ public partial class EditorRoot : Node3D
                     // Whole path: Z shows the first point; editing it shifts every point, keeping ramps intact.
                     float dz = newZ - p.Points[0].Z;
                     for (int i = 0; i < p.Points.Count; i++) p.Points[i] = new Vec3(p.Points[i].X, p.Points[i].Y, p.Points[i].Z + dz);
-                    int want = Ui.PointCorner.Selected;
+                    int want = Ui.CornerSelected;
                     if (want >= 0)
                         for (int i = 0; i < p.Points.Count; i++)
                             if (CornerId(p, i) != want) ApplyCorner(p, i, want);
@@ -1017,7 +1070,7 @@ public partial class EditorRoot : Node3D
                         if (Selected.Point == 0) p.StartDepth = (float)Ui.EndpointDepth.Value;
                         else p.EndDepth = (float)Ui.EndpointDepth.Value;
                     }
-                    int want = Ui.PointCorner.Selected;
+                    int want = Ui.CornerSelected;
                     if (want >= 0 && want != CornerId(p, Selected.Point)) ApplyCorner(p, Selected.Point, want);
                 }
                 break;
@@ -1108,6 +1161,21 @@ public partial class EditorRoot : Node3D
         if (Ui.WorkElevation != null && !Mathf.IsEqualApprox((float)Ui.WorkElevation.Value, WorkZ))
             WorkZ = (float)Ui.WorkElevation.Value;
         RebuildNow();
+        UpdateHud();
         Overlay?.Draw(this);
+    }
+
+    /// <summary>Per-frame bits of the UI that track editor state: view switch, tool chip, cursor readout, undo buttons.</summary>
+    void UpdateHud()
+    {
+        Ui.SetViewMode(Rig.IsTopDown);
+        string tool = CurrentTool switch { Tool.SpawnT => "T spawn", Tool.SpawnCT => "CT spawn", var t => t.ToString() };
+        string info = $"{tool}  ·  Z {WorkZ:0}u  ·  grid {Doc.GridSize:0}u";
+        if (Draft.Count > 0) info += $"  ·  {Draft.Count} point{(Draft.Count == 1 ? "" : "s")}";
+        Ui.SetToolInfo(info);
+        string cursor = CursorHammer is Vector3 c ? $"x {c.X,6:0}  y {c.Y,6:0}  z {c.Z,5:0}" : "";
+        if (_dragging && _dragPushedUndo && _dragAccumZ != 0) cursor += $"  Δz {_dragAccumZ:+0;-0}";
+        Ui.SetCursor(cursor);
+        Ui.SetUndoAvailable(_undo.Count > 0, _redo.Count > 0);
     }
 }

@@ -129,16 +129,16 @@ public partial class CurveEditor : Control
         int fs = 11;
         float alpha = Active ? 1f : 0.45f;
 
-        DrawRect(new Rect2(Vector2.Zero, Size), new Color(0.08f, 0.09f, 0.11f));
+        DrawRect(new Rect2(Vector2.Zero, Size), new Color(0.078f, 0.086f, 0.102f)); // matches the theme's field background
         for (int i = 0; i <= 4; i++)
         {
             float x = plot.Position.X + plot.Size.X * i / 4f;
-            DrawLine(new Vector2(x, plot.Position.Y), new Vector2(x, plot.End.Y), new Color(1, 1, 1, 0.07f));
+            DrawLine(new Vector2(x, plot.Position.Y), new Vector2(x, plot.End.Y), new Color(1, 1, 1, 0.05f));
         }
         // Reference line at the default value (1x width / 0 offset).
         float defY = ToScreen(0, DefaultValue).Y;
-        DrawLine(new Vector2(plot.Position.X, defY), new Vector2(plot.End.X, defY), new Color(1, 1, 1, 0.25f), 1f);
-        DrawRect(plot, new Color(1, 1, 1, 0.15f), false);
+        DrawDashedLine(new Vector2(plot.Position.X, defY), new Vector2(plot.End.X, defY), new Color(1, 1, 1, 0.22f), 1f, 4f);
+        DrawRect(plot, new Color(1, 1, 1, 0.08f), false);
 
         var pts = new Vector2[65];
         for (int i = 0; i < pts.Length; i++)
@@ -155,7 +155,7 @@ public partial class CurveEditor : Control
             DrawCircle(ToScreen(keys[i].T, keys[i].V), i == _drag || i == _hover ? KeyRadius : KeyRadius - 1.5f, c);
         }
 
-        var dim = new Color(1, 1, 1, 0.55f);
+        var dim = new Color(0.43f, 0.46f, 0.51f);
         DrawString(font, new Vector2(plot.Position.X + 2, plot.Position.Y + fs), $"{MaxValue:0.##}{Unit}", HorizontalAlignment.Left, -1, fs, dim);
         DrawString(font, new Vector2(plot.Position.X + 2, plot.End.Y - 3), $"{MinValue:0.##}{Unit}", HorizontalAlignment.Left, -1, fs, dim);
         DrawString(font, new Vector2(plot.Position.X, Size.Y - 3), "start", HorizontalAlignment.Left, -1, fs, dim);
