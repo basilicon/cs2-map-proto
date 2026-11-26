@@ -117,6 +117,7 @@ public static class CapturePalette
         [MeshKind.Obstacle] = Color.Color8(0, 255, 20),
         [MeshKind.PitBottom] = Color.Color8(120, 120, 70),
         [MeshKind.PitLiner] = Color.Color8(120, 120, 120),
+        [MeshKind.Ceiling] = Color.Color8(120, 120, 80),
     };
 
     /// <summary>Kind whose colour matches a Semantic pixel, or null for sky / anything else.</summary>

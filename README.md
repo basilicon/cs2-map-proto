@@ -13,10 +13,19 @@ Open the folder in Godot 4.7.2 mono and press Play (F5). Everything is C#; the o
 | **Floor** | Extra walkable polygon at an elevation (sites, open areas). Merged with paths at that height. |
 | **Obstacle** | Solid block from its elevation up by Height. Warns if lower than 65u (jumpable). |
 | **Pit** | Hole cut from the floor at its elevation. Height = depth of a floor + liner walls below; 0 = bottomless. |
+| **Ceiling** | Roof slab over the floor at its elevation. Height = clearance up to its underside. Warns below 72u (can't stand). |
 | **Spawns** | `info_player_terrorist` / `info_player_counterterrorist`. |
 
 Perimeter walls are generated around everything walkable. Each wall takes its height from the floor next to it
 (floor height + wall height), so walls follow ramps and stay low beside low corridors.
+
+### Ceilings
+
+A path can have its own roof: tick **Ceiling** in the path's wall settings and set the clearance. That roof follows
+ramps and the elevation profile, and it reaches over the walls on both sides. A **Ceiling** region roofs whatever
+it covers, for example a room or part of a site. Walls under a roof meet it: they're raised or cut down to the
+roof's top, so there's no gap and nothing pokes through. Ceilings show in the free camera only; the top view draws
+just their outlines.
 
 ### Path profiles
 
@@ -35,7 +44,7 @@ checkbox toggles it and Reset flattens it. Curves are saved in the layout file.
 ## Layout
 
 - **Top bar**: file name (with an *unsaved* marker), undo/redo, Top/Free camera switch, the File menu (new, open, save, save as) and **Export .vmap**.
-- **Tool rail** (left): the seven tools, coloured like their shapes in the viewport, with their hotkeys.
+- **Tool rail** (left): the eight tools, coloured like their shapes in the viewport, with their hotkeys.
 - **Inspector** (right): a card naming the selection, then only the properties that apply to it; Drawing, Build and Export sections fold away.
 - **Viewport chips**: current tool, working elevation and grid (top left); build warnings (top right, click for the list; hidden when there are none).
 - **Status bar**: hints and results, last export time, cursor position (and Δz while dragging vertically).
@@ -44,7 +53,7 @@ checkbox toggles it and Reset flattens it. Curves are saved in the layout file.
 
 | Key | Action |
 |---|---|
-| 1-7 | Select, Path, Floor, Obstacle, Pit, T spawn, CT spawn |
+| 1-8 | Select, Path, Floor, Obstacle, Pit, Ceiling, T spawn, CT spawn |
 | Tab | Toggle top-down (ortho) / free fly camera |
 | Middle-drag, Space+drag, WASD | Pan (top-down) / move (free) |
 | Wheel | Zoom (top-down) / move towards the cursor (free) |

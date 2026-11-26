@@ -30,12 +30,25 @@ public partial class PreviewRenderer : Node3D
         [MeshKind.Obstacle] = new Color(0.85f, 0.52f, 0.30f),
         [MeshKind.PitBottom] = new Color(0.30f, 0.28f, 0.34f),
         [MeshKind.PitLiner] = new Color(0.36f, 0.34f, 0.40f),
+        [MeshKind.Ceiling] = new Color(0.58f, 0.52f, 0.66f),
     };
+
+    MeshInstance3D _ceilings;
+
+    /// <summary>Roofs hide what's under them, so the editor turns them off in the top-down view. The capture
+    /// copies always include them.</summary>
+    public bool ShowCeilings
+    {
+        get => _ceilings?.Visible ?? true;
+        set { if (_ceilings != null) _ceilings.Visible = value; }
+    }
 
     public override void _Ready()
     {
         _instance = new MeshInstance3D { Name = "PreviewMesh", Layers = PreviewLayer };
         AddChild(_instance);
+        _ceilings = new MeshInstance3D { Name = "PreviewCeilings", Layers = PreviewLayer };
+        AddChild(_ceilings);
         if (CaptureShader == null) return;
         _depthMaterial = new ShaderMaterial { Shader = CaptureShader };
         _depthMaterial.SetShaderParameter("mode", 1);
@@ -67,7 +80,9 @@ public partial class PreviewRenderer : Node3D
 
     public void Show(BuiltMap map)
     {
-        var mesh = new ArrayMesh();
+        var mesh = new ArrayMesh();      // everything (capture copies)
+        var preview = new ArrayMesh();   // everything but ceilings
+        var ceilings = new ArrayMesh();
         var byKind = new Dictionary<MeshKind, (List<Vector3> v, List<Vector3> n)>();
         foreach (var bm in map.Meshes)
         {
@@ -95,10 +110,14 @@ public partial class PreviewRenderer : Node3D
             arrays.Resize((int)Mesh.ArrayType.Max);
             arrays[(int)Mesh.ArrayType.Vertex] = v.ToArray();
             arrays[(int)Mesh.ArrayType.Normal] = n.ToArray();
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(kind));
+            foreach (var target in new[] { mesh, kind == MeshKind.Ceiling ? ceilings : preview })
+            {
+                target.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+                target.SurfaceSetMaterial(target.GetSurfaceCount() - 1, MaterialFor(kind));
+            }
         }
-        _instance.Mesh = mesh;
+        _instance.Mesh = preview;
+        _ceilings.Mesh = ceilings;
         if (_semantic == null) return;
         // The capture copies share the mesh; the semantic one swaps each kind's surface for its flat colour.
         _semantic.Mesh = _depth.Mesh = mesh;

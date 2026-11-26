@@ -108,7 +108,7 @@ public partial class EditorRoot : Node3D
             try { Doc = MapDocument.Load(args[li + 1]); _docPath = args[li + 1]; AfterDocReplaced($"Opened {_docPath}"); return; }
             catch (Exception e) { GD.PrintErr($"--load failed: {e.Message}"); }
         }
-        AfterDocReplaced("Demo layout loaded. 1-7 tools, Tab toggles view, F frames, Ctrl+E exports.");
+        AfterDocReplaced("Demo layout loaded. 1-8 tools, Tab toggles view, F frames, Ctrl+E exports.");
     }
 
     // ------------------------------------------------------------------ CLI (headless testing / scripting)
@@ -444,7 +444,7 @@ public partial class EditorRoot : Node3D
         for (int s = 0; s < Doc.Regions.Count; s++)
         {
             var r = Doc.Regions[s];
-            float top = r.Kind == Model.RegionKind.Obstacle ? r.Elevation + r.Height : r.Elevation;
+            float top = r.Kind is Model.RegionKind.Obstacle or Model.RegionKind.Ceiling ? r.Elevation + r.Height : r.Elevation;
             for (int i = 0; i < r.Points.Count; i++)
             {
                 var a = r.Points[i]; var b = r.Points[(i + 1) % r.Points.Count];
@@ -503,8 +503,9 @@ public partial class EditorRoot : Node3D
             case Key.Key3: SetTool(Tool.Floor); break;
             case Key.Key4: SetTool(Tool.Obstacle); break;
             case Key.Key5: SetTool(Tool.Pit); break;
-            case Key.Key6: SetTool(Tool.SpawnT); break;
-            case Key.Key7: SetTool(Tool.SpawnCT); break;
+            case Key.Key6: SetTool(Tool.Ceiling); break;
+            case Key.Key7: SetTool(Tool.SpawnT); break;
+            case Key.Key8: SetTool(Tool.SpawnCT); break;
             case Key.Enter or Key.KpEnter: CommitDraft(); break;
             case Key.Escape:
                 if (Draft.Count > 0) { Draft.Clear(); _branchFrom = Handle.None; Ui.SetStatus("Drawing cancelled"); }
@@ -579,7 +580,7 @@ public partial class EditorRoot : Node3D
         switch (CurrentTool)
         {
             case Tool.Select: SelectClick(mb); break;
-            case Tool.Path or Tool.Floor or Tool.Obstacle or Tool.Pit: DraftClick(mb); break;
+            case Tool.Path or Tool.Floor or Tool.Obstacle or Tool.Pit or Tool.Ceiling: DraftClick(mb); break;
             case Tool.SpawnT or Tool.SpawnCT:
                 if (PickPlane(mb.Position, WorkZ) is Vector3 h)
                 {
@@ -840,8 +841,8 @@ public partial class EditorRoot : Node3D
         {
             if (Draft.Count < 3) { Ui.SetStatus("A region needs at least 3 points."); return; }
             PushUndo();
-            var kind = CurrentTool switch { Tool.Floor => Model.RegionKind.Floor, Tool.Obstacle => Model.RegionKind.Obstacle, _ => Model.RegionKind.Pit };
-            float height = kind switch { Model.RegionKind.Obstacle => 128f, Model.RegionKind.Pit => 256f, _ => 0f };
+            var kind = CurrentTool switch { Tool.Floor => Model.RegionKind.Floor, Tool.Obstacle => Model.RegionKind.Obstacle, Tool.Ceiling => Model.RegionKind.Ceiling, _ => Model.RegionKind.Pit };
+            float height = kind switch { Model.RegionKind.Obstacle => 128f, Model.RegionKind.Pit => 256f, Model.RegionKind.Ceiling => Doc.Build.WallHeight, _ => 0f };
             Doc.Regions.Add(new RegionShape
             {
                 Kind = kind, Elevation = Draft[0].Z, Height = height,
@@ -904,6 +905,7 @@ public partial class EditorRoot : Node3D
             Tool.Floor => "Floor: click a polygon outline; Enter or click the first point closes it.",
             Tool.Obstacle => "Obstacle: click a polygon outline; solid block from the working elevation up.",
             Tool.Pit => "Pit: outline a hole in the floor at the working elevation.",
+            Tool.Ceiling => "Ceiling: outline a roof over the floor at the working elevation; Height sets the clearance. Shown in the free camera only.",
             _ => "Spawn: click to place.",
         });
     }
@@ -947,6 +949,8 @@ public partial class EditorRoot : Node3D
                     Ui.WallRightOn.ButtonPressed = p.WallRight;
                     Ui.WallLeftHeight.Value = p.WallHeightLeft ?? Doc.Build.WallHeight;
                     Ui.WallRightHeight.Value = p.WallHeightRight ?? Doc.Build.WallHeight;
+                    Ui.PathCeilingOn.ButtonPressed = p.CeilingHeight != null;
+                    Ui.PathCeilingHeight.Value = p.CeilingHeight ?? Doc.Build.WallHeight;
                     if (Selected.IsWhole)
                     {
                         // Whole path: show the shared corner option, or nothing when points differ.
@@ -964,7 +968,7 @@ public partial class EditorRoot : Node3D
                 case HandleType.RegionPoint:
                 {
                     var r = Doc.Regions[Selected.Shape];
-                    var tool = r.Kind switch { Model.RegionKind.Floor => Tool.Floor, Model.RegionKind.Obstacle => Tool.Obstacle, _ => Tool.Pit };
+                    var tool = r.Kind switch { Model.RegionKind.Floor => Tool.Floor, Model.RegionKind.Obstacle => Tool.Obstacle, Model.RegionKind.Ceiling => Tool.Ceiling, _ => Tool.Pit };
                     Ui.SetSelectionHeader(tool, $"{r.Kind} {Selected.Shape}",
                         Selected.IsWhole ? $"Whole shape · {r.Points.Count} points" : $"Point {Selected.Point} of {r.Points.Count - 1}");
                     Ui.PropsSection.Title = r.Kind.ToString();
@@ -973,7 +977,7 @@ public partial class EditorRoot : Node3D
                     if (r.Kind != Model.RegionKind.Floor)
                     {
                         Ui.HeightRow.Visible = true;
-                        Ui.HeightLabel.Text = r.Kind == Model.RegionKind.Pit ? "Depth" : "Height";
+                        Ui.HeightLabel.Text = r.Kind switch { Model.RegionKind.Pit => "Depth", Model.RegionKind.Ceiling => "Clearance", _ => "Height" };
                         Ui.RegionHeight.Value = r.Height;
                     }
                     break;
@@ -1087,6 +1091,7 @@ public partial class EditorRoot : Node3D
                 float wl = (float)Ui.WallLeftHeight.Value, wr = (float)Ui.WallRightHeight.Value;
                 if (MathF.Abs(wl - (p.WallHeightLeft ?? Doc.Build.WallHeight)) > 0.01f) p.WallHeightLeft = wl;
                 if (MathF.Abs(wr - (p.WallHeightRight ?? Doc.Build.WallHeight)) > 0.01f) p.WallHeightRight = wr;
+                p.CeilingHeight = Ui.PathCeilingOn.ButtonPressed ? (float)Ui.PathCeilingHeight.Value : null;
                 float newZ = (float)Ui.PointZ.Value;
                 if (Selected.IsWhole)
                 {
@@ -1159,6 +1164,7 @@ public partial class EditorRoot : Node3D
     {
         // Debug aid: --screenshot <png> [--free] [--select-path N] [--curve-demo] saves the viewport after a few frames and quits.
         ++_frames;
+        Preview.ShowCeilings = !Rig.IsTopDown; // roofs would hide everything under them from above
         if (_frames == 2)
         {
             var args = OS.GetCmdlineUserArgs();

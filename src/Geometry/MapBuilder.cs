@@ -7,7 +7,7 @@ using Cs2MapProto.Model;
 
 namespace Cs2MapProto.Geometry;
 
-public enum MeshKind { Floor, Ramp, Wall, Obstacle, PitBottom, PitLiner }
+public enum MeshKind { Floor, Ramp, Wall, Obstacle, PitBottom, PitLiner, Ceiling }
 
 public sealed class BuiltMesh
 {
@@ -25,8 +25,8 @@ public sealed class BuiltEntity
 }
 
 /// <summary>A floor edge segment (2D) with its height, half width and the wall height on its left and right
-/// (seen from A towards B) at both ends.</summary>
-public readonly record struct WallRef(Vector2 A, Vector2 B, float ZA, float ZB, float HwA, float HwB, float LeftA, float LeftB, float RightA, float RightB);
+/// (seen from A towards B) at both ends. Ceil is the clearance up to the roof over it (NaN = open).</summary>
+public readonly record struct WallRef(Vector2 A, Vector2 B, float ZA, float ZB, float HwA, float HwB, float LeftA, float LeftB, float RightA, float RightB, float Ceil = float.NaN);
 
 public sealed class BuiltMap
 {
@@ -44,6 +44,7 @@ public static class MapBuilder
     const float MinSpawnSpacing = 48f;  // player hull is 32 wide; leave a margin
     const float EndDirSpan = 24f;       // free-end direction is measured over at least this distance
     const float RampClearance = 72f;    // player height: flat floors closer than this to a ramp yield to it
+    const float PlayerHeight = 72f;     // standing hull: ceilings lower than this above their floor get a warning
 
     public static BuiltMap Build(MapDocument doc)
     {
@@ -61,6 +62,22 @@ public static class MapBuilder
         var wallCuts = new PathsD();         // areas where a path side has its wall switched off
         var wallKeeps = new PathsD();        // walls of walled sides and floor regions: no cut removes these
         bool anyOpenSide = s.PerimeterWalls && doc.Paths.Any(p => !p.WallLeft || !p.WallRight);
+        // Roofs of covered paths: underside height -> the floor pieces under it, with their floor height.
+        var ceilLevels = new SortedDictionary<int, List<(int floor, PathD poly)>>();
+        // Floor without a roof of its own (uncovered paths, floor regions), by height: a covered path's roof stops
+        // where it meets one, so a covered branch doesn't reach out over the corridor it joins.
+        var openFloor = new Dictionary<int, PathsD>();
+        var openRampSections = new List<(PathD quad, float zMin, float zMax)>(); // ramps of uncovered paths
+        void AddOpenFloor(float z, PathD poly)
+        {
+            int key = (int)MathF.Round(z);
+            if (!openFloor.TryGetValue(key, out var list)) openFloor[key] = list = new PathsD();
+            list.Add(poly);
+        }
+        var ceilRamps = new List<(List<Vector2> left, List<Vector2> right, List<float> zl, List<float> zr)>(); // top heights
+        var ceilRampSections = new List<(PathD quad, float zMin, float zMax)>(); // underside height range
+        var ceilCover = new PathsD(); // everything roofed, as seen from above (for splitting the wall ring)
+        float roofTop = float.MinValue;
 
         void AddLevel(float z, PathD poly)
         {
@@ -93,8 +110,23 @@ public static class MapBuilder
             // Corner style of a sample: path points use their own; in-between samples (curve steps) are mitred,
             // which is exact for their small turns.
             CornerStyle Corner(int i) => samples[i].IsNode ? path.CornerAt(samples[i].Segment) : CornerStyle.Sharp;
+            float? ceil = path.CeilingHeight is float ch && ch > 0 ? ch : null;
+            if (ceil is float c0 && c0 < PlayerHeight)
+                map.Warnings.Add($"A path's ceiling is only {c0}u above its floor; players need {PlayerHeight}u to stand.");
             for (int i = 0; i + 1 < m; i++)
-                wallRefs.Add(new WallRef(P(i), P(i + 1), Z(i), Z(i + 1), HW(i), HW(i + 1), WallL(i), WallL(i + 1), WallR(i), WallR(i + 1)));
+                wallRefs.Add(new WallRef(P(i), P(i + 1), Z(i), Z(i + 1), HW(i), HW(i + 1), WallL(i), WallL(i + 1), WallR(i), WallR(i + 1), ceil ?? float.NaN));
+
+            // Floor pieces of a covered path also make up its roof, one clearance higher (widened over the
+            // walls once the level is merged).
+            void AddPathLevel(float z, PathD poly)
+            {
+                AddLevel(z, poly);
+                if (poly.Count < 3) return;
+                if (ceil is not float c) { AddOpenFloor(z, poly); return; }
+                int key = (int)MathF.Round(z + c);
+                if (!ceilLevels.TryGetValue(key, out var list)) ceilLevels[key] = list = new();
+                list.Add(((int)MathF.Round(z), poly));
+            }
 
             // A side without walls: cut a strip along that side out of the wall ring. The strip runs from the
             // centreline out past the wall, segment by segment, plus a wedge on the outside of each bend; free
@@ -163,7 +195,7 @@ public static class MapBuilder
             for (int i = 1; i < m - 1; i++)
             {
                 if (Flat(i - 1) == Flat(i)) continue;
-                if (JointFill(P(i - 1), P(i), P(i + 1), HW(i), Corner(i)) is { } fill) AddLevel(Z(i), fill);
+                if (JointFill(P(i - 1), P(i), P(i + 1), HW(i), Corner(i)) is { } fill) AddPathLevel(Z(i), fill);
             }
 
             // Direction a free end points in, measured over at least EndDirSpan so a tiny last step can't skew it
@@ -200,12 +232,12 @@ public static class MapBuilder
                     var d = Vector2.Normalize(line[q + 1] - line[q]);
                     if (float.IsNaN(d.X)) continue;
                     var nq = new Vector2(-d.Y, d.X);
-                    if (q == 0 && capStart && startCapR > 0.5f) { AddLevel(Z(from), Cap(line[1], -d, widths[1], startDepth, startCapR, path.CornerAt(0))); continue; }
-                    if (q == line.Count - 2 && capEnd && endCapR > 0.5f) { AddLevel(Z(from), Cap(line[q], d, widths[q], endDepth, endCapR, path.CornerAt(path.Points.Count - 1))); continue; }
-                    AddLevel(Z(from), Poly2.Ccw(new[] { line[q] - nq * widths[q], line[q + 1] - nq * widths[q + 1], line[q + 1] + nq * widths[q + 1], line[q] + nq * widths[q] }));
+                    if (q == 0 && capStart && startCapR > 0.5f) { AddPathLevel(Z(from), Cap(line[1], -d, widths[1], startDepth, startCapR, path.CornerAt(0))); continue; }
+                    if (q == line.Count - 2 && capEnd && endCapR > 0.5f) { AddPathLevel(Z(from), Cap(line[q], d, widths[q], endDepth, endCapR, path.CornerAt(path.Points.Count - 1))); continue; }
+                    AddPathLevel(Z(from), Poly2.Ccw(new[] { line[q] - nq * widths[q], line[q + 1] - nq * widths[q + 1], line[q + 1] + nq * widths[q + 1], line[q] + nq * widths[q] }));
                 }
                 for (int q = 1; q + 1 < line.Count; q++)
-                    if (JointFill(line[q - 1], line[q], line[q + 1], widths[q], corners[q]) is { } fill) AddLevel(Z(from), fill);
+                    if (JointFill(line[q - 1], line[q], line[q + 1], widths[q], corners[q]) is { } fill) AddPathLevel(Z(from), fill);
             }
 
             void EmitRampRun(int from, int to)
@@ -226,11 +258,30 @@ public static class MapBuilder
                     var section = Poly2.Ccw(new[] { right[q], right[q + 1], left[q + 1], left[q] });
                     footprint.Add(section);
                     rampSections.Add((section, MathF.Min(zs[q], zs[q + 1]), MathF.Max(zs[q], zs[q + 1])));
+                    if (ceil == null) openRampSections.Add(rampSections[^1]);
                     float run = Vector2.Distance(center[q], center[q + 1]);
                     if (run > 0.01f && MathF.Abs(zs[q + 1] - zs[q]) / run > 0.7f) steep = true;
                 }
                 ramps.Add((left, right, zl, zr));
                 foreach (var z in zs) { minZ = MathF.Min(minZ, z); maxZ = MathF.Max(maxZ, z); }
+
+                // Roof over the ramp: the same ribbon widened over the walls, one clearance up.
+                if (ceil is float c)
+                {
+                    var (cl, cr, csrc) = RibbonEdges(pts, widths.Select(w => w + s.WallThickness).ToList(), corners);
+                    var cc = csrc.Select(k => pts[k]).ToList();
+                    var czs = csrc.Select(k => Z(from + k) + c).ToList();
+                    var czl = new List<float>(czs); var czr = new List<float>(czs);
+                    RemoveLoops(cl, czl, cc);
+                    RemoveLoops(cr, czr, cc);
+                    for (int q = 0; q + 1 < cc.Count; q++)
+                    {
+                        var section = Poly2.Ccw(new[] { cr[q], cr[q + 1], cl[q + 1], cl[q] });
+                        ceilRampSections.Add((section, MathF.Min(czs[q], czs[q + 1]), MathF.Max(czs[q], czs[q + 1])));
+                        ceilCover.Add(section);
+                    }
+                    ceilRamps.Add((cl, cr, czl.Select(z => z + thick).ToList(), czr.Select(z => z + thick).ToList()));
+                }
             }
         }
 
@@ -238,6 +289,7 @@ public static class MapBuilder
         foreach (var r in doc.Regions.Where(r => r.Kind == RegionKind.Floor && r.Points.Count >= 3))
         {
             AddLevel(r.Elevation, Poly2.Ccw(r.Points.Select(p => new Vector2(p.X, p.Y))));
+            AddOpenFloor(r.Elevation, Poly2.Ccw(r.Points.Select(p => new Vector2(p.X, p.Y))));
             if (anyOpenSide) wallKeeps.AddRange(Poly2.Inflate(new PathsD { Poly2.Ccw(r.Points.Select(p => new Vector2(p.X, p.Y))) }, s.WallThickness));
             for (int i = 0; i < r.Points.Count; i++)
             {
@@ -282,6 +334,60 @@ public static class MapBuilder
             map.Meshes.Add(new BuiltMesh { Name = $"ramp_{n++}", Kind = MeshKind.Ramp, Mesh = m });
         }
         if (steep) map.Warnings.Add("A ramp is steeper than ~35 degrees; players may slide.");
+
+        // ---- Roofs of covered paths: flat levels widened over the walls, then the ramp ribbons.
+        n = 0;
+        foreach (var (z, pieces) in ceilLevels)
+        {
+            var area = Poly2.Inflate(Poly2.Close(Poly2.Union(new PathsD(pieces.Select(p => p.poly)))), s.WallThickness);
+            var cut = new PathsD();
+            foreach (int f in pieces.Select(p => p.floor).Distinct())
+            {
+                if (openFloor.TryGetValue(f, out var open)) cut.AddRange(open);
+                foreach (var (quad, zMin, zMax) in openRampSections)
+                    if (f >= zMin - RampClearance && f <= zMax + RampClearance) cut.Add(quad);
+            }
+            if (cut.Count > 0) area = Poly2.Open(Poly2.Difference(area, Poly2.Union(cut)));
+            ceilCover.AddRange(area);
+            // Where a covered ramp starts, its own sloped roof takes over (as with floors).
+            cut = new PathsD();
+            foreach (var (quad, zMin, zMax) in ceilRampSections)
+                if (z >= zMin - RampClearance && z <= zMax + RampClearance) cut.Add(quad);
+            if (cut.Count > 0) area = Poly2.Difference(area, cut);
+            foreach (var shape in Poly2.ToShapes(area))
+            {
+                var m = new PolyMesh();
+                Prism(m, shape, _ => z + thick, _ => z, s.CeilingMaterial, s.CeilingMaterial);
+                map.Meshes.Add(new BuiltMesh { Name = $"ceiling_{z}_{n++}", Kind = MeshKind.Ceiling, Mesh = m });
+            }
+            roofTop = MathF.Max(roofTop, z + thick);
+        }
+        foreach (var (left, right, zl, zr) in ceilRamps)
+        {
+            var m = new PolyMesh();
+            Ribbon(m, left, right, zl, zr, thick, s.CeilingMaterial);
+            map.Meshes.Add(new BuiltMesh { Name = $"ceiling_ramp_{n++}", Kind = MeshKind.Ceiling, Mesh = m });
+            roofTop = MathF.Max(roofTop, MathF.Max(zl.Max(), zr.Max()));
+        }
+
+        // ---- Ceiling regions: a slab over the floor at their elevation, reaching over the walls around it.
+        var ceilRegions = new List<(PathsD area, float underside)>();
+        foreach (var r in doc.Regions.Where(r => r.Kind == RegionKind.Ceiling && r.Points.Count >= 3))
+        {
+            float under = r.Elevation + MathF.Max(1f, r.Height);
+            if (r.Height < PlayerHeight)
+                map.Warnings.Add($"Ceiling at elevation {r.Elevation} is only {r.Height}u above the floor; players need {PlayerHeight}u to stand.");
+            var area = Poly2.Inflate(new PathsD { Poly2.Ccw(r.Points.Select(p => new Vector2(p.X, p.Y))) }, s.WallThickness);
+            ceilRegions.Add((area, under));
+            ceilCover.AddRange(area);
+            foreach (var shape in Poly2.ToShapes(area))
+            {
+                var m = new PolyMesh();
+                Prism(m, shape, _ => under + thick, _ => under, s.CeilingMaterial, s.CeilingMaterial);
+                map.Meshes.Add(new BuiltMesh { Name = $"ceiling_{n++}", Kind = MeshKind.Ceiling, Mesh = m });
+            }
+            roofTop = MathF.Max(roofTop, under + thick);
+        }
 
         // ---- Pits: optional bottom + liner walls hanging under the floor.
         n = 0;
@@ -341,33 +447,67 @@ public static class MapBuilder
                 ring = Poly2.Close(Poly2.Open(Poly2.Difference(ring, cuts)));
             }
             float wallBottom = minZ - thick;
+            // The floor edge a wall vertex belongs to: the nearest one, measured from the floor's side edge.
+            (WallRef w, float u, bool left, float score) Nearest(Vector2 p, bool roofedOnly)
+            {
+                (WallRef, float, bool, float) best = (default, 0f, false, float.MaxValue);
+                foreach (var w in wallRefs)
+                {
+                    if (roofedOnly && float.IsNaN(w.Ceil)) continue;
+                    var ab = w.B - w.A; float len2 = ab.LengthSquared();
+                    float u = len2 < 1e-6f ? 0 : Math.Clamp(Vector2.Dot(p - w.A, ab) / len2, 0f, 1f);
+                    float score = Vector2.Distance(p, w.A + ab * u) - (w.HwA + (w.HwB - w.HwA) * u);
+                    if (score < best.Item4)
+                        best = (w, u, (ab.X * (p.Y - w.A.Y) - ab.Y * (p.X - w.A.X)) >= 0, score);
+                }
+                return best;
+            }
             // Each wall vertex takes its height from the nearest floor edge: that floor's height plus its wall
             // height (scaled by the path's wall profile). Walls therefore follow ramps and vary along paths.
             float WallTop(Vector2 p)
             {
-                float best = float.MaxValue, top = maxZ + s.WallHeight;
-                foreach (var w in wallRefs)
+                var (w, u, left, score) = Nearest(p, false);
+                float top = maxZ + s.WallHeight;
+                if (score < float.MaxValue)
                 {
-                    var ab = w.B - w.A; float len2 = ab.LengthSquared();
-                    float u = len2 < 1e-6f ? 0 : Math.Clamp(Vector2.Dot(p - w.A, ab) / len2, 0f, 1f);
-                    float score = Vector2.Distance(p, w.A + ab * u) - (w.HwA + (w.HwB - w.HwA) * u);
-                    if (score < best)
-                    {
-                        best = score;
-                        bool left = (ab.X * (p.Y - w.A.Y) - ab.Y * (p.X - w.A.X)) >= 0;
-                        float wa = left ? w.LeftA : w.RightA, wb = left ? w.LeftB : w.RightB;
-                        top = w.ZA + (w.ZB - w.ZA) * u + wa + (wb - wa) * u;
-                    }
+                    float wa = left ? w.LeftA : w.RightA, wb = left ? w.LeftB : w.RightB;
+                    top = w.ZA + (w.ZB - w.ZA) * u + wa + (wb - wa) * u;
                 }
                 return MathF.Max(top, wallBottom + 1f);
             }
-            n = 0;
-            foreach (var shape in Poly2.ToShapes(ring))
+            // Under a roof the wall meets the roof's top instead (raised or cut down to it), so there's no gap and
+            // nothing pokes through. Covered paths roof their own edges; a ceiling region roofs whatever it covers
+            // below its underside. The lowest roof over the vertex wins.
+            float RoofedTop(Vector2 p)
             {
-                var m = new PolyMesh();
-                Prism(m, shape, WallTop, _ => wallBottom, s.WallMaterial, s.WallMaterial);
-                map.Meshes.Add(new BuiltMesh { Name = $"wall_{n++}", Kind = MeshKind.Wall, Mesh = m });
+                float floorZ = float.MinValue, roof = float.MaxValue;
+                var near = Nearest(p, false);
+                if (near.score < float.MaxValue) floorZ = near.w.ZA + (near.w.ZB - near.w.ZA) * near.u;
+                var (w, u, _, score) = Nearest(p, true);
+                if (score <= s.WallThickness + 1f) roof = w.ZA + (w.ZB - w.ZA) * u + w.Ceil + thick;
+                var pt = new PointD(p.X, p.Y);
+                foreach (var (area, under) in ceilRegions)
+                    if (under > floorZ && under + thick < roof && area.Any(a => Clipper.PointInPolygon(pt, a) != PointInPolygonResult.IsOutside))
+                        roof = under + thick;
+                return roof < float.MaxValue ? MathF.Max(roof, wallBottom + 1f) : WallTop(p);
             }
+            // Split the ring where roofs end, so each piece has vertices right at the roof's edge.
+            var pieces = new List<(PathsD area, Func<Vector2, float> top)>();
+            if (ceilCover.Count > 0)
+            {
+                var cover = Poly2.Union(ceilCover);
+                pieces.Add((Poly2.Open(Poly2.Intersect(ring, cover)), RoofedTop));
+                pieces.Add((Poly2.Open(Poly2.Difference(ring, cover)), WallTop));
+            }
+            else pieces.Add((ring, WallTop));
+            n = 0;
+            foreach (var (area, top) in pieces)
+                foreach (var shape in Poly2.ToShapes(area))
+                {
+                    var m = new PolyMesh();
+                    Prism(m, shape, top, _ => wallBottom, s.WallMaterial, s.WallMaterial);
+                    map.Meshes.Add(new BuiltMesh { Name = $"wall_{n++}", Kind = MeshKind.Wall, Mesh = m });
+                }
         }
 
         // ---- Entities.
@@ -407,7 +547,7 @@ public static class MapBuilder
         if (!doc.Spawns.Any(sp => sp.Team == Team.T)) map.Warnings.Add("No T spawns.");
         if (!doc.Spawns.Any(sp => sp.Team == Team.CT)) map.Warnings.Add("No CT spawns.");
 
-        float lightZ = (maxZ > float.MinValue ? maxZ : 0) + 1024;
+        float lightZ = MathF.Max(maxZ > float.MinValue ? maxZ : 0, roofTop) + 1024;
         map.Entities.Add(new BuiltEntity
         {
             ClassName = "light_environment",

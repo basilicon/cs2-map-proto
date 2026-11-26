@@ -17,6 +17,7 @@ public partial class OverlayRenderer : Node3D
     static readonly Color FloorColor = new(0.6f, 0.9f, 0.6f);
     static readonly Color ObstacleColor = new(1f, 0.6f, 0.3f);
     static readonly Color PitColor = new(0.85f, 0.4f, 0.9f);
+    static readonly Color CeilingColor = new(0.7f, 0.62f, 0.95f);
     static readonly Color SelectedColor = new(1f, 1f, 0.2f);
     static readonly Color HoverColor = new(1f, 1f, 1f);
     static readonly Color DraftColor = new(1f, 0.95f, 0.4f);
@@ -59,6 +60,11 @@ public partial class OverlayRenderer : Node3D
 
     void Line(Vec3 a, Vec3 b, Color c) { _lines.Add((Space.ToGodot(a), c)); _lines.Add((Space.ToGodot(b), c)); }
 
+    static Color RegionColor(RegionKind k) => k switch
+    {
+        RegionKind.Floor => FloorColor, RegionKind.Obstacle => ObstacleColor, RegionKind.Ceiling => CeilingColor, _ => PitColor,
+    };
+
     public void Draw(EditorRoot ed)
     {
         _lines.Clear(); _tris.Clear(); _gridLines.Clear();
@@ -80,8 +86,8 @@ public partial class OverlayRenderer : Node3D
         {
             var r = doc.Regions[s];
             bool sel = ed.SelectedRegion == s;
-            var col = sel ? SelectedColor : r.Kind switch { RegionKind.Floor => FloorColor, RegionKind.Obstacle => ObstacleColor, _ => PitColor };
-            float top = r.Kind == RegionKind.Obstacle ? r.Elevation + r.Height : r.Elevation;
+            var col = sel ? SelectedColor : RegionColor(r.Kind);
+            float top = r.Kind is RegionKind.Obstacle or RegionKind.Ceiling ? r.Elevation + r.Height : r.Elevation;
             for (int i = 0; i < r.Points.Count; i++)
             {
                 var a = r.Points[i]; var b = r.Points[(i + 1) % r.Points.Count];
@@ -119,7 +125,7 @@ public partial class OverlayRenderer : Node3D
             else if (h == ed.Hovered) { col = HoverColor; size = 7f; }
             else if (h.Type == HandleType.Spawn) col = doc.Spawns[h.Shape].Team == Team.T ? TColor : CTColor;
             else if (h.Type == HandleType.PathPoint) col = doc.Paths[h.Shape].IsCurved(h.Point) ? CurvedPointColor : PathColor;
-            else col = doc.Regions[h.Shape].Kind switch { RegionKind.Floor => FloorColor, RegionKind.Obstacle => ObstacleColor, _ => PitColor };
+            else col = RegionColor(doc.Regions[h.Shape].Kind);
             Square(ed, Space.ToGodot(Lift(pos)), size, col);
             if (h.Type == HandleType.Spawn) SpawnMarker(ed, doc.Spawns[h.Shape], col);
         }

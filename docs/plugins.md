@@ -195,6 +195,7 @@ it. They're in `CapturePalette`:
 | `Wall`, `PitLiner` | 120, 120, 120 | wall |
 | `Obstacle` | 0, 255, 20 | box |
 | `PitBottom` | 120, 120, 70 | earth |
+| `Ceiling` | 120, 120, 80 | ceiling |
 | sky / nothing | 6, 230, 230 | sky |
 
 `CapturePalette.KindAt(pixel)` maps a semantic pixel back to its `MeshKind`, or null for sky (walls and pit liners

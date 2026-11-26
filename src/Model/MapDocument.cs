@@ -60,6 +60,9 @@ public sealed class PathShape
     /// <summary>Wall height on each side; null = the build's default wall height. The wall profile scales it.</summary>
     public float? WallHeightLeft { get; set; }
     public float? WallHeightRight { get; set; }
+    /// <summary>Roof over the path: clearance from the floor to the ceiling's underside, following ramps and the
+    /// elevation profile. null = open to the sky.</summary>
+    public float? CeilingHeight { get; set; }
 
     public bool AnyProfile => WidthCurve.Enabled || ElevationCurve.Enabled || WallCurve.Enabled;
 
@@ -122,6 +125,8 @@ public enum RegionKind
     Obstacle,
     /// <summary>Hole cut out of every floor it overlaps. Height = drop depth to the pit bottom (0 = bottomless).</summary>
     Pit,
+    /// <summary>Roof slab over the floor at Elevation. Height = clearance from that floor to the slab's underside.</summary>
+    Ceiling,
 }
 
 /// <summary>A closed flat polygon at one elevation. Points' Z is ignored; Elevation applies to all.</summary>
@@ -154,6 +159,7 @@ public sealed class BuildSettings
     public string FloorMaterial { get; set; } = "materials/dev/reflectivity_30.vmat";
     public string WallMaterial { get; set; } = "materials/dev/dev_measuregeneric01.vmat";
     public string ObstacleMaterial { get; set; } = "materials/dev/dev_measuregeneric01.vmat";
+    public string CeilingMaterial { get; set; } = "materials/dev/dev_measuregeneric01.vmat";
 }
 
 public sealed class ExportSettings
@@ -197,7 +203,8 @@ public sealed class MapDocument
     public void Save(string path) => File.WriteAllText(path, ToJson());
     public static MapDocument Load(string path) => FromJson(File.ReadAllText(path));
 
-    /// <summary>A small layout that exercises every feature: two levels, a ramp, an obstacle, a pit, spawns.</summary>
+    /// <summary>A small layout that exercises every feature: two levels, a ramp, an obstacle, a pit, a covered
+    /// corridor, a ceiling region, spawns.</summary>
     public static MapDocument CreateDemo()
     {
         var d = new MapDocument();
@@ -209,6 +216,7 @@ public sealed class MapDocument
         d.Paths.Add(new PathShape
         {
             Width = 160,
+            CeilingHeight = 160,
             Points = { new(0, 256, 0), new(0, -768, 0), new(1024, -768, 0) },
         });
         d.Regions.Add(new RegionShape
@@ -230,6 +238,11 @@ public sealed class MapDocument
         {
             Kind = RegionKind.Pit, Elevation = 0, Height = 256,
             Points = { new(-64, -448, 0), new(64, -448, 0), new(64, -256, 0), new(-64, -256, 0) },
+        });
+        d.Regions.Add(new RegionShape
+        {
+            Kind = RegionKind.Ceiling, Elevation = 64, Height = 224,
+            Points = { new(1088, 896, 0), new(1408, 896, 0), new(1408, 1408, 0), new(1088, 1408, 0) },
         });
         // 64u apart, two rows: well clear of each other and the walls.
         for (int i = 0; i < 5; i++)

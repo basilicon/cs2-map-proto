@@ -4,7 +4,7 @@ using Godot;
 
 namespace Cs2MapProto.Editor;
 
-public enum Tool { Select, Path, Floor, Obstacle, Pit, SpawnT, SpawnCT }
+public enum Tool { Select, Path, Floor, Obstacle, Pit, Ceiling, SpawnT, SpawnCT }
 
 /// <summary>Thin binding layer over the scene's premade controls. Every control is an [Export] so the
 /// layout can be rearranged freely in the Godot editor (the scene binds them by unique name, %Name);
@@ -32,6 +32,7 @@ public partial class EditorUi : Control
     [Export] public Button FloorTool { get; set; }
     [Export] public Button ObstacleTool { get; set; }
     [Export] public Button PitTool { get; set; }
+    [Export] public Button CeilingTool { get; set; }
     [Export] public Button SpawnTTool { get; set; }
     [Export] public Button SpawnCTTool { get; set; }
 
@@ -91,6 +92,9 @@ public partial class EditorUi : Control
     [Export] public CheckBox WallRightOn { get; set; }
     [Export] public SpinBox WallRightHeight { get; set; }
     [Export] public Button WallProfile { get; set; }
+    /// <summary>Roof over the selected path, and its clearance above the floor.</summary>
+    [Export] public CheckBox PathCeilingOn { get; set; }
+    [Export] public SpinBox PathCeilingHeight { get; set; }
 
     [ExportGroup("Inspector: build")]
     [Export] public SpinBox FloorThickness { get; set; }
@@ -137,6 +141,7 @@ public partial class EditorUi : Control
         BindTool(FloorTool, Tool.Floor);
         BindTool(ObstacleTool, Tool.Obstacle);
         BindTool(PitTool, Tool.Pit);
+        BindTool(CeilingTool, Tool.Ceiling);
         BindTool(SpawnTTool, Tool.SpawnT);
         BindTool(SpawnCTTool, Tool.SpawnCT);
 
@@ -202,12 +207,14 @@ public partial class EditorUi : Control
             RegionKind.AddItem("Floor", 0);
             RegionKind.AddItem("Obstacle", 1);
             RegionKind.AddItem("Pit", 2);
+            RegionKind.AddItem("Ceiling", 3);
         }
 
-        foreach (var s in new[] { PathWidth, EndpointDepth, PointZ, RegionHeight, SpawnYaw, WallLeftHeight, WallRightHeight })
+        foreach (var s in new[] { PathWidth, EndpointDepth, PointZ, RegionHeight, SpawnYaw, WallLeftHeight, WallRightHeight, PathCeilingHeight })
             s.ValueChanged += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
         WallLeftOn.Toggled += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
         WallRightOn.Toggled += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
+        PathCeilingOn.Toggled += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
         WallProfile.Pressed += () => WallProfileRequested?.Invoke();
         RegionKind.ItemSelected += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
 
@@ -276,7 +283,7 @@ public partial class EditorUi : Control
     Button ToolButton(Tool t) => t switch
     {
         Tool.Select => SelectTool, Tool.Path => PathTool, Tool.Floor => FloorTool, Tool.Obstacle => ObstacleTool,
-        Tool.Pit => PitTool, Tool.SpawnT => SpawnTTool, _ => SpawnCTTool,
+        Tool.Pit => PitTool, Tool.Ceiling => CeilingTool, Tool.SpawnT => SpawnTTool, _ => SpawnCTTool,
     };
 
     /// <summary>SetPressedNoSignal doesn't release the rest of a ButtonGroup, so release them here.</summary>
@@ -349,6 +356,7 @@ public partial class EditorUi : Control
         WallLeftOn.Disabled = WallRightOn.Disabled = WallProfile.Disabled = !walls;
         WallLeftHeight.Editable = walls && WallLeftOn.ButtonPressed;
         WallRightHeight.Editable = walls && WallRightOn.ButtonPressed;
+        PathCeilingHeight.Editable = PathCeilingOn.ButtonPressed;
         WallHeight.Editable = walls;
     }
 

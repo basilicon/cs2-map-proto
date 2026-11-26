@@ -23,6 +23,7 @@
 [ext_resource type="Texture2D" path="res://ui/icons/spawn_ct.svg" id="20_x"]
 [ext_resource type="Texture2D" path="res://ui/icons/warning.svg" id="21_x"]
 [ext_resource type="Texture2D" path="res://ui/icons/close.svg" id="22_x"]
+[ext_resource type="Texture2D" path="res://ui/icons/ceiling.svg" id="24_x"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -65,7 +66,7 @@ script = ExtResource("4_x")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("DocName", "DirtyChip", "UndoButton", "RedoButton", "TopViewButton", "FreeViewButton", "FileMenu", "ToolsMenu", "ExportButton", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ToolInfo", "WarningButton", "WarningsPopover", "WarningsClose", "Warnings", "ProfilePanel", "ProfileKind", "ProfileEnabled", "ProfileReset", "ProfileEditor", "SelectionIcon", "SelectionLabel", "SelectionSub", "PropsSection", "KindRow", "RegionKind", "ZRow", "ZLabel", "PointZ", "HeightRow", "HeightLabel", "RegionHeight", "WidthRow", "WidthLabel", "PathWidth", "CornerRow", "CornerSharp", "CornerBevel", "CornerRound", "CornerSmooth", "EndpointRow", "EndpointDepth", "WallsRow", "WallLeftOn", "WallLeftHeight", "WallRightOn", "WallRightHeight", "WallProfile", "WallsSection", "YawRow", "YawLabel", "SpawnYaw", "WorkElevation", "GridSize", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Status", "LastExport", "CursorLabel", "OpenDialog", "SaveDialog", "ExportDialog")]
+[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("DocName", "DirtyChip", "UndoButton", "RedoButton", "TopViewButton", "FreeViewButton", "FileMenu", "ToolsMenu", "ExportButton", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "CeilingTool", "SpawnTTool", "SpawnCTTool", "ToolInfo", "WarningButton", "WarningsPopover", "WarningsClose", "Warnings", "ProfilePanel", "ProfileKind", "ProfileEnabled", "ProfileReset", "ProfileEditor", "SelectionIcon", "SelectionLabel", "SelectionSub", "PropsSection", "KindRow", "RegionKind", "ZRow", "ZLabel", "PointZ", "HeightRow", "HeightLabel", "RegionHeight", "WidthRow", "WidthLabel", "PathWidth", "CornerRow", "CornerSharp", "CornerBevel", "CornerRound", "CornerSmooth", "EndpointRow", "EndpointDepth", "WallsRow", "WallLeftOn", "WallLeftHeight", "WallRightOn", "WallRightHeight", "WallProfile", "PathCeilingOn", "PathCeilingHeight", "WallsSection", "YawRow", "YawLabel", "SpawnYaw", "WorkElevation", "GridSize", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Status", "LastExport", "CursorLabel", "OpenDialog", "SaveDialog", "ExportDialog")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -88,6 +89,7 @@ PathTool = NodePath("%PathTool")
 FloorTool = NodePath("%FloorTool")
 ObstacleTool = NodePath("%ObstacleTool")
 PitTool = NodePath("%PitTool")
+CeilingTool = NodePath("%CeilingTool")
 SpawnTTool = NodePath("%SpawnTTool")
 SpawnCTTool = NodePath("%SpawnCTTool")
 ToolInfo = NodePath("%ToolInfo")
@@ -128,6 +130,8 @@ WallLeftHeight = NodePath("%WallLeftHeight")
 WallRightOn = NodePath("%WallRightOn")
 WallRightHeight = NodePath("%WallRightHeight")
 WallProfile = NodePath("%WallProfile")
+PathCeilingOn = NodePath("%PathCeilingOn")
+PathCeilingHeight = NodePath("%PathCeilingHeight")
 WallsSection = NodePath("%WallsSection")
 YawRow = NodePath("%YawRow")
 YawLabel = NodePath("%YawLabel")
@@ -445,6 +449,40 @@ theme_type_variation = &"KeyHint"
 text = "5"
 horizontal_alignment = 2
 
+[node name="CeilingTool" type="Button" parent="UI/Root/Layout/Body/Rail/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "Ceiling (6): roof over the floor at the working elevation. Height = clearance. Hidden in the top view."
+theme_type_variation = &"RailButton"
+toggle_mode = true
+icon = ExtResource("24_x")
+icon_alignment = 1
+theme_override_colors/icon_normal_color = Color(0.7, 0.62, 0.95, 1.0)
+theme_override_colors/icon_hover_color = Color(0.7, 0.62, 0.95, 1.0)
+theme_override_colors/icon_pressed_color = Color(0.7, 0.62, 0.95, 1.0)
+theme_override_colors/icon_hover_pressed_color = Color(0.7, 0.62, 0.95, 1.0)
+theme_override_colors/icon_focus_color = Color(0.7, 0.62, 0.95, 1.0)
+
+[node name="Key" type="Label" parent="UI/Root/Layout/Body/Rail/VBox/CeilingTool"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -11.0
+offset_top = -15.0
+offset_right = -3.0
+offset_bottom = -1.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"KeyHint"
+text = "6"
+horizontal_alignment = 2
+
 [node name="Sep" type="HSeparator" parent="UI/Root/Layout/Body/Rail/VBox"]
 layout_mode = 2
 
@@ -453,7 +491,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 focus_mode = 0
-tooltip_text = "T spawn (6): place a Terrorist spawn."
+tooltip_text = "T spawn (7): place a Terrorist spawn."
 theme_type_variation = &"RailButton"
 toggle_mode = true
 icon = ExtResource("19_x")
@@ -479,7 +517,7 @@ grow_horizontal = 0
 grow_vertical = 0
 mouse_filter = 2
 theme_type_variation = &"KeyHint"
-text = "6"
+text = "7"
 horizontal_alignment = 2
 
 [node name="SpawnCTTool" type="Button" parent="UI/Root/Layout/Body/Rail/VBox"]
@@ -487,7 +525,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 focus_mode = 0
-tooltip_text = "CT spawn (7): place a Counter-Terrorist spawn."
+tooltip_text = "CT spawn (8): place a Counter-Terrorist spawn."
 theme_type_variation = &"RailButton"
 toggle_mode = true
 icon = ExtResource("20_x")
@@ -513,7 +551,7 @@ grow_horizontal = 0
 grow_vertical = 0
 mouse_filter = 2
 theme_type_variation = &"KeyHint"
-text = "7"
+text = "8"
 horizontal_alignment = 2
 
 [node name="Center" type="VBoxContainer" parent="UI/Root/Layout/Body"]
@@ -781,7 +819,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 max_value = 4096.0
 value = 128.0
-tooltip_text = "Obstacle: height of the block. Pit: depth (0 = bottomless)."
+tooltip_text = "Obstacle: height of the block. Pit: depth (0 = bottomless). Ceiling: clearance above the floor."
 allow_greater = true
 suffix = "u"
 
@@ -1008,6 +1046,30 @@ max_value = 4096.0
 step = 8.0
 value = 192.0
 tooltip_text = "Wall height on this side, above the floor (the wall profile curve scales it)."
+allow_greater = true
+suffix = "u"
+
+[node name="Ceiling" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/WallsSection/Rows/WallsRow"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PathCeilingOn" type="CheckBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/WallsSection/Rows/WallsRow/Ceiling"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "Roof over this path. It follows ramps, and the walls along it meet it."
+text = "Ceiling"
+
+[node name="PathCeilingHeight" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/WallsSection/Rows/WallsRow/Ceiling"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 16.0
+max_value = 4096.0
+step = 8.0
+value = 192.0
+tooltip_text = "Clearance from the floor to the ceiling's underside (players need 72u to stand)."
 allow_greater = true
 suffix = "u"
 
