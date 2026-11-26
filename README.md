@@ -119,8 +119,9 @@ before generating. Renders, prompts (`manifest.json`) and images go to `<layout>
 Generation runs in Python (`python/concept_sketch.py`, diffusers). The add-on starts it on first use, keeps the
 model loaded and stops it when the editor closes. It can also be used without the editor:
 `python concept_sketch.py serve` (HTTP API, documented in the script) or `python concept_sketch.py run <manifest.json>`.
-Install torch for your CUDA version, then `pip install -r requirements.txt`. The Python executable, port and model ids
-are in `settings.json` in the plugin data folder (`%APPDATA%\Godot\app_userdata\CS2 Map Proto\plugins\concept-sketch`),
+One-time setup, with any Python 3.10+: `python addons/ConceptSketch/python/concept_sketch.py setup` creates a private
+venv in the plugin data folder with torch (CUDA 12.8 wheels; `--torch-index` for others) and diffusers, and the add-on
+uses it automatically. The Python executable (to use another one), port and model ids are in `settings.json` in the plugin data folder (`%APPDATA%\Godot\app_userdata\CS2 Map Proto\plugins\concept-sketch`),
 next to `backend.log`.
 
 Test without clicking: `Godot... --path . -- --concept-sketch <outdir> [--no-generate] [--load layout.json]`.
