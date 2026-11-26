@@ -33,6 +33,7 @@ public sealed class EditorHost : IEditorHost
 
     public void AddMenuItem(string label, Action onPressed) => _root.Ui.AddToolsItem(label, onPressed);
     public void SetStatus(string text) => _root.Ui.SetStatus(text);
+    public void SetPreviewOverride(Mesh main, Mesh ceilings = null) => _root.Preview.SetOverride(main, ceilings);
     public Task<CaptureResult> CaptureAsync(CaptureRequest request) => _capture.CaptureAsync(request);
 
     public string PluginDataDir(string pluginId)

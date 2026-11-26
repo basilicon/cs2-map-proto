@@ -53,8 +53,29 @@ public partial class PreviewRenderer : Node3D
     /// copies always include them.</summary>
     public bool ShowCeilings
     {
-        get => _ceilings?.Visible ?? true;
-        set { if (_ceilings != null) _ceilings.Visible = value; }
+        get => _showCeilings;
+        set { _showCeilings = value; UpdateVisibility(); }
+    }
+
+    bool _showCeilings = true;
+    MeshInstance3D _overrideMain, _overrideCeilings;
+
+    /// <summary>Shows a plugin's meshes (e.g. a textured version of the map) instead of the editor's own preview;
+    /// null restores it. The ceilings mesh follows ShowCeilings. The capture copies are unaffected.</summary>
+    public void SetOverride(Mesh main, Mesh ceilings)
+    {
+        _overrideMain.Mesh = main;
+        _overrideCeilings.Mesh = main != null ? ceilings : null;
+        UpdateVisibility();
+    }
+
+    void UpdateVisibility()
+    {
+        bool over = _overrideMain?.Mesh != null;
+        if (_instance != null) _instance.Visible = !over;
+        if (_ceilings != null) _ceilings.Visible = !over && _showCeilings;
+        if (_overrideMain != null) _overrideMain.Visible = over;
+        if (_overrideCeilings != null) _overrideCeilings.Visible = over && _showCeilings;
     }
 
     public override void _Ready()
@@ -63,6 +84,10 @@ public partial class PreviewRenderer : Node3D
         AddChild(_instance);
         _ceilings = new MeshInstance3D { Name = "PreviewCeilings", Layers = PreviewLayer };
         AddChild(_ceilings);
+        _overrideMain = new MeshInstance3D { Name = "OverrideMesh", Layers = PreviewLayer };
+        _overrideCeilings = new MeshInstance3D { Name = "OverrideCeilings", Layers = PreviewLayer };
+        AddChild(_overrideMain);
+        AddChild(_overrideCeilings);
         if (CaptureShader == null) return;
         _depthMaterial = new ShaderMaterial { Shader = CaptureShader };
         _depthMaterial.SetShaderParameter("mode", 1);

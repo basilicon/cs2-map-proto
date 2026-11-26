@@ -142,6 +142,7 @@ menu stays hidden until a plugin adds an item.) The output panel shows `Plugin l
 | `void AddMenuItem(string label, Action onPressed)` | Adds an item to the top bar's Tools menu. |
 | `Node UiRoot` | The editor's UI root control. Parent your windows and helper nodes to it. |
 | `void SetStatus(string text)` | Shows a message in the status bar. |
+| `void SetPreviewOverride(Mesh main, Mesh ceilings = null)` | Shows your meshes (Godot space) in the editor view instead of its own preview, e.g. a textured map; `null` restores the preview. `ceilings` is hidden in the top-down view like the preview's roofs. Captures still render the editor's meshes. If your meshes mirror the map, clear or rebuild them on `Rebuilt`. |
 | `Task<CaptureResult> CaptureAsync(CaptureRequest request)` | Renders the built map off screen. See [Off-screen capture](#off-screen-capture). |
 | `string PluginDataDir(string pluginId)` | A folder for machine-local files (settings, caches, logs, venvs), created on demand: `user://plugins/<id>/`, which on Windows is `%APPDATA%\Godot\app_userdata\CS2 Map Proto\plugins\<id>\`. |
 | `T GetDocumentData<T>(string pluginId)` | Reads this plugin's data from the layout, or null if there is none. |

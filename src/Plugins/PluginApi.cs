@@ -43,6 +43,12 @@ public interface IEditorHost
     Node UiRoot { get; }
     void SetStatus(string text);
 
+    /// <summary>Shows these meshes in the editor's view instead of its own preview (Godot space, as Space.ToGodot
+    /// maps Hammer units); null restores the preview. The ceilings mesh is hidden in the top-down view like the
+    /// preview's roofs. Captures always render the editor's own meshes. Clear or rebuild it on Rebuilt if it
+    /// mirrors the map's geometry.</summary>
+    void SetPreviewOverride(Mesh main, Mesh ceilings = null);
+
     /// <summary>Renders the built map from a camera into images, off screen (the editor's own view is untouched).</summary>
     Task<CaptureResult> CaptureAsync(CaptureRequest request);
 
