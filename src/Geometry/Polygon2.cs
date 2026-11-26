@@ -42,6 +42,10 @@ public static class Poly2
     /// touch, removing pinch vertices, with no visible change elsewhere.</summary>
     public static PathsD Close(PathsD polys, double r = 0.5) => Inflate(Inflate(polys, r), -r);
 
+    /// <summary>Morphological opening (shrink then grow by r): removes slivers thinner than 2r, with no visible
+    /// change elsewhere.</summary>
+    public static PathsD Open(PathsD polys, double r = 0.1) => Inflate(Inflate(polys, -r), r);
+
     /// <summary>Thickens an open polyline into polygons with flat (butt) ends.</summary>
     public static PathsD ThickenPolyline(IEnumerable<Vector2> line, double halfWidth) =>
         Clipper.InflatePaths(new PathsD { ToPath(line) }, halfWidth, JoinType.Miter, EndType.Butt, 2.0, Precision);

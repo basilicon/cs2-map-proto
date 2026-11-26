@@ -337,7 +337,8 @@ public static class MapBuilder
             {
                 var cuts = Poly2.Union(wallCuts);
                 if (wallKeeps.Count > 0) cuts = Poly2.Difference(cuts, Poly2.Union(wallKeeps));
-                ring = Poly2.Close(Poly2.Difference(ring, cuts));
+                // Opening first drops hairline slivers where a cut lands almost on the floor edge.
+                ring = Poly2.Close(Poly2.Open(Poly2.Difference(ring, cuts)));
             }
             float wallBottom = minZ - thick;
             // Each wall vertex takes its height from the nearest floor edge: that floor's height plus its wall
