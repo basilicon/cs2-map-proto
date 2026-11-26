@@ -53,6 +53,14 @@ public sealed class PathShape
     public ProfileCurve ElevationCurve { get; set; } = ProfileCurve.Flat(0); // offset added to point heights (u)
     public ProfileCurve WallCurve { get; set; } = ProfileCurve.Flat(1);      // multiplier of the wall height
 
+    /// <summary>Walls along each side of the path (left/right as seen walking from the first point to the last).
+    /// Off leaves that edge open, e.g. a drop or a view into another area; the end walls at free ends stay.</summary>
+    public bool WallLeft { get; set; } = true;
+    public bool WallRight { get; set; } = true;
+    /// <summary>Wall height on each side; null = the build's default wall height. The wall profile scales it.</summary>
+    public float? WallHeightLeft { get; set; }
+    public float? WallHeightRight { get; set; }
+
     public bool AnyProfile => WidthCurve.Enabled || ElevationCurve.Enabled || WallCurve.Enabled;
 
     public void Normalize()
@@ -100,6 +108,8 @@ public sealed class PathShape
         Tangents.Reverse();
         Corners.Reverse();
         (StartDepth, EndDepth) = (EndDepth, StartDepth);
+        (WallLeft, WallRight) = (WallRight, WallLeft);
+        (WallHeightLeft, WallHeightRight) = (WallHeightRight, WallHeightLeft);
         for (int i = 0; i < Tangents.Count; i++) Tangents[i] = new Vec3(-Tangents[i].X, -Tangents[i].Y, 0);
     }
 }

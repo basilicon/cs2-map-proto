@@ -63,6 +63,11 @@ public partial class EditorUi : Control
     [Export] public Button CornerSmooth { get; set; }
     [Export] public Control EndpointRow { get; set; }
     [Export] public SpinBox EndpointDepth { get; set; }
+    [Export] public Control WallsRow { get; set; }
+    [Export] public CheckBox WallLeftOn { get; set; }
+    [Export] public SpinBox WallLeftHeight { get; set; }
+    [Export] public CheckBox WallRightOn { get; set; }
+    [Export] public SpinBox WallRightHeight { get; set; }
     [Export] public Control YawRow { get; set; }
     [Export] public Label YawLabel { get; set; }
     [Export] public SpinBox SpawnYaw { get; set; }
@@ -185,8 +190,10 @@ public partial class EditorUi : Control
             RegionKind.AddItem("Pit", 2);
         }
 
-        foreach (var s in new[] { PathWidth, EndpointDepth, PointZ, RegionHeight, SpawnYaw })
+        foreach (var s in new[] { PathWidth, EndpointDepth, PointZ, RegionHeight, SpawnYaw, WallLeftHeight, WallRightHeight })
             s.ValueChanged += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
+        WallLeftOn.Toggled += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
+        WallRightOn.Toggled += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
         RegionKind.ItemSelected += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
 
         // Corner segmented control. Index matches Model.CornerStyle, plus Smooth (a Bezier point) last.

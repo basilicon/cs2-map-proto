@@ -63,7 +63,7 @@ script = ExtResource("4_x")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("DocName", "DirtyChip", "UndoButton", "RedoButton", "TopViewButton", "FreeViewButton", "FileMenu", "ExportButton", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ToolInfo", "WarningButton", "WarningsPopover", "WarningsClose", "Warnings", "ProfilePanel", "ProfileKind", "ProfileEnabled", "ProfileReset", "ProfileEditor", "SelectionIcon", "SelectionLabel", "SelectionSub", "PropsSection", "KindRow", "RegionKind", "ZRow", "ZLabel", "PointZ", "HeightRow", "HeightLabel", "RegionHeight", "WidthRow", "WidthLabel", "PathWidth", "CornerRow", "CornerSharp", "CornerBevel", "CornerRound", "CornerSmooth", "EndpointRow", "EndpointDepth", "YawRow", "YawLabel", "SpawnYaw", "WorkElevation", "GridSize", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Status", "LastExport", "CursorLabel", "OpenDialog", "SaveDialog", "ExportDialog")]
+[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("DocName", "DirtyChip", "UndoButton", "RedoButton", "TopViewButton", "FreeViewButton", "FileMenu", "ExportButton", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ToolInfo", "WarningButton", "WarningsPopover", "WarningsClose", "Warnings", "ProfilePanel", "ProfileKind", "ProfileEnabled", "ProfileReset", "ProfileEditor", "SelectionIcon", "SelectionLabel", "SelectionSub", "PropsSection", "KindRow", "RegionKind", "ZRow", "ZLabel", "PointZ", "HeightRow", "HeightLabel", "RegionHeight", "WidthRow", "WidthLabel", "PathWidth", "CornerRow", "CornerSharp", "CornerBevel", "CornerRound", "CornerSmooth", "EndpointRow", "EndpointDepth", "WallsRow", "WallLeftOn", "WallLeftHeight", "WallRightOn", "WallRightHeight", "YawRow", "YawLabel", "SpawnYaw", "WorkElevation", "GridSize", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Status", "LastExport", "CursorLabel", "OpenDialog", "SaveDialog", "ExportDialog")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -119,6 +119,11 @@ CornerRound = NodePath("%CornerRound")
 CornerSmooth = NodePath("%CornerSmooth")
 EndpointRow = NodePath("%EndpointRow")
 EndpointDepth = NodePath("%EndpointDepth")
+WallsRow = NodePath("%WallsRow")
+WallLeftOn = NodePath("%WallLeftOn")
+WallLeftHeight = NodePath("%WallLeftHeight")
+WallRightOn = NodePath("%WallRightOn")
+WallRightHeight = NodePath("%WallRightHeight")
 YawRow = NodePath("%YawRow")
 YawLabel = NodePath("%YawLabel")
 SpawnYaw = NodePath("%SpawnYaw")
@@ -865,6 +870,66 @@ size_flags_horizontal = 3
 max_value = 2048.0
 step = 8.0
 tooltip_text = "How far the floor runs past this end point. 0 = stop at the point. Independent of path width."
+allow_greater = true
+suffix = "u"
+
+[node name="WallsRow" type="VBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Label" type="Label" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/WallsRow"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+tooltip_text = "Left and right as seen walking from the path's first point to its last. Applies to the whole path."
+mouse_filter = 0
+text = "Walls  (walking first → last point)"
+
+[node name="Left" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/WallsRow"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="WallLeftOn" type="CheckBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/WallsRow/Left"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "Wall along the left side of the path. Off leaves that edge open; end walls stay."
+button_pressed = true
+text = "Left"
+
+[node name="WallLeftHeight" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/WallsRow/Left"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 4096.0
+step = 8.0
+value = 192.0
+tooltip_text = "Wall height on this side, above the floor (the wall profile curve scales it)."
+allow_greater = true
+suffix = "u"
+
+[node name="Right" type="HBoxContainer" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/WallsRow"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="WallRightOn" type="CheckBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/WallsRow/Right"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "Wall along the right side of the path. Off leaves that edge open; end walls stay."
+button_pressed = true
+text = "Right"
+
+[node name="WallRightHeight" type="SpinBox" parent="UI/Root/Layout/Body/Inspector/Scroll/VBox/PropsSection/Rows/WallsRow/Right"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 4096.0
+step = 8.0
+value = 192.0
+tooltip_text = "Wall height on this side, above the floor (the wall profile curve scales it)."
 allow_greater = true
 suffix = "u"
 

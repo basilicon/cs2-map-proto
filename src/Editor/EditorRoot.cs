@@ -79,7 +79,8 @@ public partial class EditorRoot : Node3D
         Ui.RedoRequested += Redo;
         Ui.ViewModeChosen += top => { if (Rig.IsTopDown != top) Rig.ToggleMode(); };
         Ui.PropertiesEdited += ApplyPropertyEdits;
-        Ui.SettingsEdited += () => { ApplySettingsEdits(); MarkUnsaved(); };
+        // Refresh the inspector too: path wall heights that follow the default show the new value.
+        Ui.SettingsEdited += () => { ApplySettingsEdits(); MarkUnsaved(); RefreshSelectionUi(); };
         Rig.RightClicked += HandleRightClick;
         Ui.ProfileKindChanged += RefreshProfileUi;
         Ui.ProfileEditStarted += PushUndo;
@@ -893,7 +894,7 @@ public partial class EditorRoot : Node3D
         {
             // Only the rows that apply to the selection are shown.
             Ui.KindRow.Visible = Ui.ZRow.Visible = Ui.HeightRow.Visible = Ui.WidthRow.Visible = false;
-            Ui.CornerRow.Visible = Ui.EndpointRow.Visible = Ui.YawRow.Visible = false;
+            Ui.CornerRow.Visible = Ui.EndpointRow.Visible = Ui.YawRow.Visible = Ui.WallsRow.Visible = false;
             Ui.PropsSection.Title = "Properties";
             Ui.WidthLabel.Text = "Width";
             Ui.YawLabel.Text = "Yaw";
@@ -919,6 +920,13 @@ public partial class EditorRoot : Node3D
                     Ui.ZRow.Visible = true; Ui.ZLabel.Text = Selected.IsWhole ? "Z (first point)" : "Z";
                     Ui.PointZ.Value = p.Points[pi].Z;
                     Ui.CornerRow.Visible = true;
+                    Ui.WallsRow.Visible = true;
+                    Ui.WallLeftOn.ButtonPressed = p.WallLeft;
+                    Ui.WallRightOn.ButtonPressed = p.WallRight;
+                    Ui.WallLeftHeight.Value = p.WallHeightLeft ?? Doc.Build.WallHeight;
+                    Ui.WallRightHeight.Value = p.WallHeightRight ?? Doc.Build.WallHeight;
+                    Ui.WallLeftHeight.Editable = p.WallLeft;
+                    Ui.WallRightHeight.Editable = p.WallRight;
                     if (Selected.IsWhole)
                     {
                         // Whole path: show the shared corner option, or nothing when points differ.
@@ -1050,6 +1058,14 @@ public partial class EditorRoot : Node3D
             case HandleType.PathPoint or HandleType.TangentOut or HandleType.TangentIn:
                 var p = Doc.Paths[Selected.Shape];
                 p.Width = (float)Ui.PathWidth.Value;
+                p.WallLeft = Ui.WallLeftOn.ButtonPressed;
+                p.WallRight = Ui.WallRightOn.ButtonPressed;
+                // Heights stay on the build default until changed here, so they follow that setting.
+                float wl = (float)Ui.WallLeftHeight.Value, wr = (float)Ui.WallRightHeight.Value;
+                if (MathF.Abs(wl - (p.WallHeightLeft ?? Doc.Build.WallHeight)) > 0.01f) p.WallHeightLeft = wl;
+                if (MathF.Abs(wr - (p.WallHeightRight ?? Doc.Build.WallHeight)) > 0.01f) p.WallHeightRight = wr;
+                Ui.WallLeftHeight.Editable = p.WallLeft;
+                Ui.WallRightHeight.Editable = p.WallRight;
                 float newZ = (float)Ui.PointZ.Value;
                 if (Selected.IsWhole)
                 {

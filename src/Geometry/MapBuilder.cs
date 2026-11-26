@@ -24,8 +24,9 @@ public sealed class BuiltEntity
     public Dictionary<string, string> Properties = new();
 }
 
-/// <summary>A floor edge segment (2D) with its height, half width and wall height at both ends.</summary>
-public readonly record struct WallRef(Vector2 A, Vector2 B, float ZA, float ZB, float HwA, float HwB, float WallA, float WallB);
+/// <summary>A floor edge segment (2D) with its height, half width and the wall height on its left and right
+/// (seen from A towards B) at both ends.</summary>
+public readonly record struct WallRef(Vector2 A, Vector2 B, float ZA, float ZB, float HwA, float HwB, float LeftA, float LeftB, float RightA, float RightB);
 
 public sealed class BuiltMap
 {
@@ -57,6 +58,7 @@ public static class MapBuilder
         var rampSections = new List<(PathD quad, float zMin, float zMax)>(); // ramp footprint pieces with their height range
         float minZ = float.MaxValue, maxZ = float.MinValue;
         var wallRefs = new List<WallRef>(); // floor edges that set the height of nearby perimeter walls
+        var wallCuts = new PathsD();         // areas where a path side has its wall switched off
 
         void AddLevel(float z, PathD poly)
         {
@@ -81,12 +83,62 @@ public static class MapBuilder
             Vector2 P(int i) => new(samples[i].P.X, samples[i].P.Y);
             float Z(int i) => samples[i].P.Z;
             bool Flat(int seg) => MathF.Abs(Z(seg + 1) - Z(seg)) < FlatEpsilon;
-            float Wall(int i) => s.WallHeight * samples[i].WallScale;
+            float WallL(int i) => (path.WallHeightLeft ?? s.WallHeight) * samples[i].WallScale;
+            float WallR(int i) => (path.WallHeightRight ?? s.WallHeight) * samples[i].WallScale;
             // Corner style of a sample: path points use their own; in-between samples (curve steps) are mitred,
             // which is exact for their small turns.
             CornerStyle Corner(int i) => samples[i].IsNode ? path.CornerAt(samples[i].Segment) : CornerStyle.Sharp;
             for (int i = 0; i + 1 < m; i++)
-                wallRefs.Add(new WallRef(P(i), P(i + 1), Z(i), Z(i + 1), HW(i), HW(i + 1), Wall(i), Wall(i + 1)));
+                wallRefs.Add(new WallRef(P(i), P(i + 1), Z(i), Z(i + 1), HW(i), HW(i + 1), WallL(i), WallL(i + 1), WallR(i), WallR(i + 1)));
+
+            // A side without walls: cut a strip along that side out of the wall ring. The strip runs from the
+            // centreline out past the wall, segment by segment, plus a wedge on the outside of each bend; free
+            // flat ends include their extension, so the end wall itself stays. Strips of the other (walled)
+            // side are taken back out, so the inside of a hairpin can't eat the opposite wall.
+            if (s.PerimeterWalls && (!path.WallLeft || !path.WallRight))
+            {
+                PathsD SideStrip(float side)
+                {
+                    var res = new PathsD();
+                    float R(int i) => HW(i) + s.WallThickness + 2f;
+                    Vector2 N(int seg) { var d = Vector2.Normalize(P(seg + 1) - P(seg)); return float.IsNaN(d.X) ? Vector2.Zero : new Vector2(-d.Y, d.X) * side; }
+                    for (int i = 0; i + 1 < m; i++)
+                    {
+                        var n0 = N(i);
+                        if (n0 == Vector2.Zero) continue;
+                        res.Add(Poly2.Ccw(new[] { P(i), P(i + 1), P(i + 1) + n0 * R(i + 1), P(i) + n0 * R(i) }));
+                    }
+                    for (int i = 1; i + 1 < m; i++)
+                    {
+                        var na = N(i - 1); var nb = N(i);
+                        if (na == Vector2.Zero || nb == Vector2.Zero) continue;
+                        float cr = na.X * nb.Y - na.Y * nb.X;
+                        // Outside of the bend on this side: the normals turn away from the side (clockwise for +side).
+                        if (cr * side >= -1e-4f) continue;
+                        float r = HW(i) + 2f * s.WallThickness + 2f;
+                        var wedge = CornerArc(P(i), na * r, nb * r, r, CornerStyle.Sharp);
+                        wedge.Insert(0, P(i));
+                        res.Add(Poly2.Ccw(wedge));
+                    }
+                    void EndStrip(int end, int step, float depth, bool flat)
+                    {
+                        if (!flat || depth <= 0.5f) return;
+                        var d = EndDir(end, step);
+                        if (d == Vector2.Zero) return;
+                        var nrm = new Vector2(-d.Y, d.X) * side * (step > 0 ? -1f : 1f); // d points away from the path
+                        float r = R(end);
+                        res.Add(Poly2.Ccw(new[] { P(end), P(end) + d * depth, P(end) + d * depth + nrm * r, P(end) + nrm * r }));
+                    }
+                    EndStrip(0, +1, startDepth, Flat(0));
+                    EndStrip(m - 1, -1, endDepth, Flat(m - 2));
+                    return res;
+                }
+                var cut = new PathsD();
+                var keep = new PathsD();
+                (path.WallLeft ? keep : cut).AddRange(SideStrip(+1f));
+                (path.WallRight ? keep : cut).AddRange(SideStrip(-1f));
+                wallCuts.AddRange(keep.Count > 0 ? Poly2.Difference(Poly2.Union(cut), Poly2.Union(keep)) : Poly2.Union(cut));
+            }
 
             // Maximal runs of same-kind segments; run [k, j] covers samples k..j+1.
             for (int k = 0; k < m - 1;)
@@ -179,7 +231,7 @@ public static class MapBuilder
             for (int i = 0; i < r.Points.Count; i++)
             {
                 var a = r.Points[i]; var b = r.Points[(i + 1) % r.Points.Count];
-                wallRefs.Add(new WallRef(new Vector2(a.X, a.Y), new Vector2(b.X, b.Y), r.Elevation, r.Elevation, 0, 0, s.WallHeight, s.WallHeight));
+                wallRefs.Add(new WallRef(new Vector2(a.X, a.Y), new Vector2(b.X, b.Y), r.Elevation, r.Elevation, 0, 0, s.WallHeight, s.WallHeight, s.WallHeight, s.WallHeight));
             }
         }
 
@@ -265,6 +317,7 @@ public static class MapBuilder
             // Closing merges places where the ring touches itself at a single corner (a pinch), which would
             // otherwise give vertical edges shared by four faces - not representable in Hammer's mesh format.
             var ring = Poly2.Close(Poly2.Difference(Poly2.Inflate(all, s.WallThickness), all));
+            if (wallCuts.Count > 0) ring = Poly2.Close(Poly2.Difference(ring, wallCuts));
             float wallBottom = minZ - thick;
             // Each wall vertex takes its height from the nearest floor edge: that floor's height plus its wall
             // height (scaled by the path's wall profile). Walls therefore follow ramps and vary along paths.
@@ -279,7 +332,9 @@ public static class MapBuilder
                     if (score < best)
                     {
                         best = score;
-                        top = w.ZA + (w.ZB - w.ZA) * u + w.WallA + (w.WallB - w.WallA) * u;
+                        bool left = (ab.X * (p.Y - w.A.Y) - ab.Y * (p.X - w.A.X)) >= 0;
+                        float wa = left ? w.LeftA : w.RightA, wb = left ? w.LeftB : w.RightB;
+                        top = w.ZA + (w.ZB - w.ZA) * u + wa + (wb - wa) * u;
                     }
                 }
                 return MathF.Max(top, wallBottom + 1f);
