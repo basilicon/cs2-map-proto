@@ -80,13 +80,13 @@ public partial class OverlayRenderer : Node3D
             var col = whole ? SelectedColor : sel ? SelectedColor with { A = 0.75f } : PathColor;
             var samples = PathSampler.Flatten(doc.Paths[s]);
             for (int i = 0; i + 1 < samples.Count; i++)
-                Line(Lift(V(samples[i].P)), Lift(V(samples[i + 1].P)), col);
+                Line(Lift(V(samples[i].P)), Lift(V(samples[i + 1].P)), sel ? col : Faded(ed, col, samples[i].P.Z));
         }
         for (int s = 0; s < doc.Regions.Count; s++)
         {
             var r = doc.Regions[s];
             bool sel = ed.SelectedRegion == s;
-            var col = sel ? SelectedColor : RegionColor(r.Kind);
+            var col = sel ? SelectedColor : Faded(ed, RegionColor(r.Kind), r.Elevation);
             float top = r.Kind is RegionKind.Obstacle or RegionKind.Ceiling ? r.Elevation + r.Height : r.Elevation;
             for (int i = 0; i < r.Points.Count; i++)
             {
@@ -126,6 +126,8 @@ public partial class OverlayRenderer : Node3D
             else if (h.Type == HandleType.Spawn) col = doc.Spawns[h.Shape].Team == Team.T ? TColor : CTColor;
             else if (h.Type == HandleType.PathPoint) col = doc.Paths[h.Shape].IsCurved(h.Point) ? CurvedPointColor : PathColor;
             else col = RegionColor(doc.Regions[h.Shape].Kind);
+            bool ofSelection = h.Shape == ed.Selected.Shape && (h.Type == ed.Selected.Type || (h.Type == HandleType.PathPoint && ed.SelectedPath == h.Shape));
+            if (h != ed.Hovered && !ofSelection) col = Faded(ed, col, pos.Z);
             Square(ed, Space.ToGodot(Lift(pos)), size, col);
             if (h.Type == HandleType.Spawn) SpawnMarker(ed, doc.Spawns[h.Shape], col);
         }
@@ -141,6 +143,9 @@ public partial class OverlayRenderer : Node3D
         Flush(_onTopMesh, _onTopMat, _lines, _tris);
         Flush(_inWorldMesh, _inWorldMat, _gridLines, null);
     }
+
+    /// <summary>Shapes on another level than the working elevation are drawn faint.</summary>
+    static Color Faded(EditorRoot ed, Color c, float z) => ed.OffLevel(z) ? c with { A = c.A * 0.3f } : c;
 
     static Vec3 Lift(Vec3 v) => new(v.X, v.Y, v.Z + 1f);
     static Vec3 V(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);

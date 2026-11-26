@@ -63,6 +63,15 @@ public partial class EditorRoot : Node3D
     List<(Handle h, Vec3 start)> _dragItems = new();
 
     const float PickRadiusPx = 10f;
+
+    /// <summary>Vertical gap that separates two levels, as the builder sees it: standing player height plus a
+    /// floor slab. Shapes at least this far from the working elevation are on another level: drawn faded,
+    /// picked after those on the working level, and hidden from the top view while they're above it.</summary>
+    public float LevelGap => 72f + MathF.Max(1f, Doc.Build.FloorThickness);
+    public bool OffLevel(float z) => MathF.Abs(z - WorkZ) >= LevelGap;
+
+    // A click on the selected shape where others overlap moves on to the next one on release (unless it dragged).
+    bool _cycleOnRelease;
     const float WeldEpsilon = 0.5f;
 
     public override void _Ready()
@@ -396,29 +405,39 @@ public partial class EditorRoot : Node3D
 
     Handle PickHandle(Vector2 mouse, bool includeTangents = true, Func<Handle, bool> filter = null)
     {
+        var hits = PickHandles(mouse, includeTangents, filter);
+        return hits.Count > 0 ? hits[0] : Handle.None;
+    }
+
+    /// <summary>Markers under the mouse, best first: those on the working level before those on other levels,
+    /// then by distance on screen.</summary>
+    List<Handle> PickHandles(Vector2 mouse, bool includeTangents = true, Func<Handle, bool> filter = null)
+    {
         var cam = Rig.Camera;
-        Handle best = Handle.None; float bestD = PickRadiusPx;
+        var hits = new List<(Handle h, bool off, float d)>();
         var candidates = includeTangents ? TangentHandles().Concat(AllHandles()) : AllHandles();
         foreach (var h in candidates)
         {
             if (filter != null && !filter(h)) continue;
-            var g = Space.ToGodot(PositionOf(h));
+            var pos = PositionOf(h);
+            var g = Space.ToGodot(pos);
             if (cam.IsPositionBehind(g)) continue;
             float d = cam.UnprojectPosition(g).DistanceTo(mouse);
             // Prefer the selected shape's markers when they overlap others (e.g. at a branch junction).
             if (h.Shape == Selected.Shape && (h.Type == Selected.Type || (h.IsTangent && SelectedPath == h.Shape))) d -= 2f;
             if (h.IsTangent) d -= 1f;
-            if (d < bestD) { bestD = d; best = h; }
+            if (d < PickRadiusPx) hits.Add((h, OffLevel(pos.Z), d));
         }
-        return best;
+        return hits.OrderBy(x => x.off).ThenBy(x => x.d).Select(x => x.h).ToList();
     }
 
     /// <summary>Finds the path or region edge under the mouse. For paths, insertAt is the index a new point would get.</summary>
-    (HandleType type, int shape, int insertAt, float z) PickEdge(Vector2 mouse)
+    /// <summary>Path and region edges under the mouse, one per shape, best first (working level first, then
+    /// distance on screen). For paths, insertAt is the index a new point would get.</summary>
+    List<(HandleType type, int shape, int insertAt, float z)> PickEdges(Vector2 mouse)
     {
         var cam = Rig.Camera;
-        (HandleType, int, int, float) best = (HandleType.None, -1, -1, 0);
-        float bestD = PickRadiusPx;
+        var best = new Dictionary<(HandleType, int), (int insertAt, float z, float d)>();
         void Test(HandleType t, int s, Vec3 a, Vec3 b, int insertAt)
         {
             var ga = Space.ToGodot(a); var gb = Space.ToGodot(b);
@@ -426,11 +445,9 @@ public partial class EditorRoot : Node3D
             var sa = cam.UnprojectPosition(ga); var sb = cam.UnprojectPosition(gb);
             var closest = Geometry2D.GetClosestPointToSegment(mouse, sa, sb);
             float d = closest.DistanceTo(mouse);
-            if (d < bestD)
-            {
-                float f = sa.DistanceTo(sb) > 0.01f ? sa.DistanceTo(closest) / sa.DistanceTo(sb) : 0;
-                bestD = d; best = (t, s, insertAt, a.Z + (b.Z - a.Z) * f);
-            }
+            if (d >= PickRadiusPx || (best.TryGetValue((t, s), out var prev) && prev.d <= d)) return;
+            float f = sa.DistanceTo(sb) > 0.01f ? sa.DistanceTo(closest) / sa.DistanceTo(sb) : 0;
+            best[(t, s)] = (insertAt, a.Z + (b.Z - a.Z) * f, d);
         }
         for (int s = 0; s < Doc.Paths.Count; s++)
         {
@@ -451,7 +468,8 @@ public partial class EditorRoot : Node3D
                 Test(HandleType.RegionPoint, s, new Vec3(a.X, a.Y, top), new Vec3(b.X, b.Y, top), i + 1);
             }
         }
-        return best;
+        return best.OrderBy(kv => OffLevel(kv.Value.z)).ThenBy(kv => kv.Value.d)
+            .Select(kv => (kv.Key.Item1, kv.Key.Item2, kv.Value.insertAt, kv.Value.z)).ToList();
     }
 
     Vector3? PickPlane(Vector2 mouse, float hammerZ)
@@ -574,6 +592,8 @@ public partial class EditorRoot : Node3D
         if (!mb.Pressed)
         {
             if (_dragging) { _dragging = false; if (_dragPushedUndo) Ui.SetStatus("Moved"); }
+            if (_cycleOnRelease && !_dragPushedUndo) CycleSelection(mb.Position);
+            _cycleOnRelease = false;
             return;
         }
 
@@ -616,25 +636,67 @@ public partial class EditorRoot : Node3D
         else { Selected = Handle.None; RefreshSelectionUi(); }
     }
 
+    /// <summary>The shape a handle belongs to (its points, curve handles and the whole shape count as one).</summary>
+    static (int kind, int shape) ShapeOf(Handle h) => (h.Type switch { HandleType.RegionPoint => 1, HandleType.Spawn => 2, _ => 0 }, h.Shape);
+
+    /// <summary>The shapes a click here could select, best first, each by its best hit: a marker if one is under
+    /// the cursor, otherwise the whole shape by its edge.</summary>
+    List<Handle> ClickCandidates(Vector2 mouse) =>
+        PickHandles(mouse).Concat(PickEdges(mouse).Select(e => new Handle(e.type, e.shape, -1)))
+            .GroupBy(ShapeOf).Select(g => g.First()).ToList();
+
+    /// <summary>A click (without dragging) on the selection where shapes overlap selects the next one: at a bridge
+    /// over a corridor, click again to get the shape on the other level.</summary>
+    void CycleSelection(Vector2 mouse)
+    {
+        var c = ClickCandidates(mouse);
+        int i = c.FindIndex(h => ShapeOf(h) == ShapeOf(Selected));
+        if (c.Count < 2 || i < 0) return;
+        int next = (i + 1) % c.Count;
+        Selected = c[next];
+        RefreshSelectionUi();
+        Ui.SetStatus($"Shape {next + 1} of {c.Count} under the cursor; click again for the next.");
+    }
+
     void SelectClick(InputEventMouseButton mb)
     {
         bool ctrl = mb.CtrlPressed;
+        // Pressing on the selection keeps it (so it can be dragged), unless another marker of the same shape is
+        // closer (that one gets selected as usual). Releasing without a drag then moves on to the next shape under
+        // the cursor.
+        if (!ctrl && !Selected.IsNone)
+        {
+            var c = ClickCandidates(mb.Position);
+            var markers = PickHandles(mb.Position);
+            bool otherMarkerOfSelection = markers.Count > 0 && markers[0] != Selected && ShapeOf(markers[0]) == ShapeOf(Selected);
+            // A selected marker must itself be under the cursor; a whole shape anywhere along it.
+            bool onSelection = Selected.IsWhole ? c.Any(h => ShapeOf(h) == ShapeOf(Selected)) : markers.Contains(Selected);
+            if (onSelection && !otherMarkerOfSelection)
+            {
+                _cycleOnRelease = c.Count > 1;
+                BeginDrag(mb.Position, pushedUndo: false, detach: false);
+                return;
+            }
+        }
+
         var hit = PickHandle(mb.Position);
         if (!hit.IsNone)
         {
             Selected = hit;
             RefreshSelectionUi();
             BeginDrag(mb.Position, pushedUndo: false, detach: ctrl);
+            if (ClickCandidates(mb.Position).Count > 1) Ui.SetStatus("Others overlap here; click again for the next.");
             return;
         }
 
-        var (type, shape, at, z) = PickEdge(mb.Position);
-        if (type == HandleType.None)
+        var edges = PickEdges(mb.Position);
+        if (edges.Count == 0)
         {
             Selected = Handle.None;
             RefreshSelectionUi();
             return;
         }
+        var (type, shape, at, z) = edges[0];
 
         if (ctrl)
         {
@@ -660,7 +722,8 @@ public partial class EditorRoot : Node3D
         Selected = new Handle(type, shape, -1);
         RefreshSelectionUi();
         BeginDrag(mb.Position, pushedUndo: false, detach: false);
-        Ui.SetStatus("Whole shape selected: drag to move, PgUp/PgDn to raise/lower, C to curve, Del to delete.");
+        Ui.SetStatus(edges.Count > 1 ? "Whole shape selected; others overlap here: click again for the next."
+            : "Whole shape selected: drag to move, PgUp/PgDn to raise/lower, C to curve, Del to delete.");
     }
 
     void BeginDrag(Vector2 mouse, bool pushedUndo, bool detach)
@@ -1165,6 +1228,9 @@ public partial class EditorRoot : Node3D
         // Debug aid: --screenshot <png> [--free] [--select-path N] [--curve-demo] saves the viewport after a few frames and quits.
         ++_frames;
         Preview.ShowCeilings = !Rig.IsTopDown; // roofs would hide everything under them from above
+        // Top view: meshes that start a level or more above the working elevation (a bridge over the corridor
+        // being edited) would hide it, so they're left out; the free camera shows everything.
+        Preview.HideAbove = Rig.IsTopDown ? WorkZ + LevelGap - MathF.Max(1f, Doc.Build.FloorThickness) : float.PositiveInfinity;
         if (_frames == 2)
         {
             var args = OS.GetCmdlineUserArgs();
