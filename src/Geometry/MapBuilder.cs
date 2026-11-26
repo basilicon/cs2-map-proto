@@ -59,8 +59,13 @@ public static class MapBuilder
         var rampSections = new List<(PathD quad, float zMin, float zMax)>(); // ramp footprint pieces with their height range
         float minZ = float.MaxValue, maxZ = float.MinValue;
         var wallRefs = new List<WallRef>(); // floor edges that set the height of nearby perimeter walls
-        var wallCuts = new PathsD();         // areas where a path side has its wall switched off
-        var wallKeeps = new PathsD();        // walls of walled sides and floor regions: no cut removes these
+        // Areas where a path side has its wall switched off, and walls of walled sides and floor regions that no
+        // cut removes; each with the floor heights it belongs to, so a stacked level only uses its own.
+        var wallCuts = new List<(PathD poly, float zMin, float zMax)>();
+        var wallKeeps = new List<(PathD poly, float zMin, float zMax)>();
+        // Walkable surfaces (flat levels, ramp sections) for finding stacked levels; see the wall section.
+        var surfaces = new List<Surface>();
+        var rampCenters = new List<List<(Vector2 a, Vector2 b, float za, float zb)>>(); // centreline per ramp run
         bool anyOpenSide = s.PerimeterWalls && doc.Paths.Any(p => !p.WallLeft || !p.WallRight);
         // Roofs of covered paths: underside height -> the floor pieces under it, with their floor height.
         var ceilLevels = new SortedDictionary<int, List<(int floor, PathD poly)>>();
@@ -135,16 +140,16 @@ public static class MapBuilder
             // wall, and a branch keeps its wall right up to the corner where it meets an open side.
             if (anyOpenSide)
             {
-                PathsD SideStrip(float side, float margin)
+                List<(PathD, float, float)> SideStrip(float side, float margin)
                 {
-                    var res = new PathsD();
+                    var res = new List<(PathD, float, float)>();
                     float R(int i) => HW(i) + s.WallThickness + margin;
                     Vector2 N(int seg) { var d = Vector2.Normalize(P(seg + 1) - P(seg)); return float.IsNaN(d.X) ? Vector2.Zero : new Vector2(-d.Y, d.X) * side; }
                     for (int i = 0; i + 1 < m; i++)
                     {
                         var n0 = N(i);
                         if (n0 == Vector2.Zero) continue;
-                        res.Add(Poly2.Ccw(new[] { P(i), P(i + 1), P(i + 1) + n0 * R(i + 1), P(i) + n0 * R(i) }));
+                        res.Add((Poly2.Ccw(new[] { P(i), P(i + 1), P(i + 1) + n0 * R(i + 1), P(i) + n0 * R(i) }), MathF.Min(Z(i), Z(i + 1)), MathF.Max(Z(i), Z(i + 1))));
                     }
                     for (int i = 1; i + 1 < m; i++)
                     {
@@ -156,7 +161,7 @@ public static class MapBuilder
                         float r = HW(i) + 2f * s.WallThickness + margin;
                         var wedge = CornerArc(P(i), na * r, nb * r, r, CornerStyle.Sharp);
                         wedge.Insert(0, P(i));
-                        res.Add(Poly2.Ccw(wedge));
+                        res.Add((Poly2.Ccw(wedge), Z(i), Z(i)));
                     }
                     // Only the straight part of the end extension: a bevelled / rounded cap is all end wall.
                     void EndStrip(int end, int step, float depth, bool flat)
@@ -168,7 +173,7 @@ public static class MapBuilder
                         if (d == Vector2.Zero) return;
                         var nrm = new Vector2(-d.Y, d.X) * side * (step > 0 ? -1f : 1f); // d points away from the path
                         float r = R(end);
-                        res.Add(Poly2.Ccw(new[] { P(end), P(end) + d * depth, P(end) + d * depth + nrm * r, P(end) + nrm * r }));
+                        res.Add((Poly2.Ccw(new[] { P(end), P(end) + d * depth, P(end) + d * depth + nrm * r, P(end) + nrm * r }), Z(end), Z(end)));
                     }
                     EndStrip(0, +1, startDepth, Flat(0));
                     EndStrip(m - 1, -1, endDepth, Flat(m - 2));
@@ -253,10 +258,15 @@ public static class MapBuilder
                 var zl = new List<float>(zs); var zr = new List<float>(zs);
                 RemoveLoops(left, zl, center);
                 RemoveLoops(right, zr, center);
+                int group = rampCenters.Count;
+                var centerline = new List<(Vector2, Vector2, float, float)>();
+                rampCenters.Add(centerline);
                 for (int q = 0; q + 1 < center.Count; q++)
                 {
                     var section = Poly2.Ccw(new[] { right[q], right[q + 1], left[q + 1], left[q] });
                     footprint.Add(section);
+                    centerline.Add((center[q], center[q + 1], zs[q], zs[q + 1]));
+                    surfaces.Add(new Surface(new PathsD { section }, MathF.Min(zs[q], zs[q + 1]), MathF.Max(zs[q], zs[q + 1]), group));
                     rampSections.Add((section, MathF.Min(zs[q], zs[q + 1]), MathF.Max(zs[q], zs[q + 1])));
                     if (ceil == null) openRampSections.Add(rampSections[^1]);
                     float run = Vector2.Distance(center[q], center[q + 1]);
@@ -290,7 +300,9 @@ public static class MapBuilder
         {
             AddLevel(r.Elevation, Poly2.Ccw(r.Points.Select(p => new Vector2(p.X, p.Y))));
             AddOpenFloor(r.Elevation, Poly2.Ccw(r.Points.Select(p => new Vector2(p.X, p.Y))));
-            if (anyOpenSide) wallKeeps.AddRange(Poly2.Inflate(new PathsD { Poly2.Ccw(r.Points.Select(p => new Vector2(p.X, p.Y))) }, s.WallThickness));
+            if (anyOpenSide)
+                foreach (var k in Poly2.Inflate(new PathsD { Poly2.Ccw(r.Points.Select(p => new Vector2(p.X, p.Y))) }, s.WallThickness))
+                    wallKeeps.Add((k, r.Elevation, r.Elevation));
             for (int i = 0; i < r.Points.Count; i++)
             {
                 var a = r.Points[i]; var b = r.Points[(i + 1) % r.Points.Count];
@@ -316,6 +328,7 @@ public static class MapBuilder
             foreach (var pit in pits.Where(p => MathF.Abs(p.Elevation - z) < 1f))
                 cut.Add(Poly2.Ccw(pit.Points.Select(p => new Vector2(p.X, p.Y))));
             if (cut.Count > 0) area = Poly2.Difference(area, cut);
+            surfaces.Add(new Surface(area, z, z, -1));
 
             foreach (var shape in Poly2.ToShapes(area))
             {
@@ -324,6 +337,17 @@ public static class MapBuilder
                 map.Meshes.Add(new BuiltMesh { Name = $"floor_{z}_{n++}", Kind = MeshKind.Floor, Mesh = m });
             }
         }
+
+        // Flat floors on top of each other with less than headroom between them: nobody fits in between.
+        var flats = surfaces.Where(sf => sf.Ramp < 0).ToList();
+        for (int i = 0; i < flats.Count; i++)
+            for (int j = i + 1; j < flats.Count; j++)
+            {
+                float gap = MathF.Abs(flats[j].ZMin - flats[i].ZMin);
+                if (gap >= Headroom(thick) || !flats[i].Box.Touches(flats[j].Box, 0)) continue;
+                if (Poly2.Intersect(flats[i].Area, flats[j].Area).Sum(p => Math.Abs(Clipper.Area(p))) > 256)
+                    map.Warnings.Add($"Floors at {flats[i].ZMin} and {flats[j].ZMin} overlap with only {gap}u between them; stacked levels need {Headroom(thick)}u.");
+            }
 
         // ---- Ramps: continuous sloped ribbons (straight or curved).
         n = 0;
@@ -439,16 +463,23 @@ public static class MapBuilder
             // Closing merges places where the ring touches itself at a single corner (a pinch), which would
             // otherwise give vertical edges shared by four faces - not representable in Hammer's mesh format.
             var ring = Poly2.Close(Poly2.Difference(Poly2.Inflate(all, s.WallThickness), all));
+            // Cuts for open path sides, optionally only those of paths at a floor height near [zMin, zMax].
+            PathsD Cuts(float zMin = float.MinValue, float zMax = float.MaxValue)
+            {
+                bool Near((PathD poly, float lo, float hi) c) => c.lo - zMax < Headroom(thick) && zMin - c.hi < Headroom(thick);
+                var cuts = Poly2.Union(new PathsD(wallCuts.Where(Near).Select(c => c.poly)));
+                var keeps = wallKeeps.Where(Near).Select(c => c.poly).ToList();
+                return keeps.Count > 0 && cuts.Count > 0 ? Poly2.Difference(cuts, Poly2.Union(new PathsD(keeps))) : cuts;
+            }
             if (wallCuts.Count > 0)
             {
-                var cuts = Poly2.Union(wallCuts);
-                if (wallKeeps.Count > 0) cuts = Poly2.Difference(cuts, Poly2.Union(wallKeeps));
                 // Opening first drops hairline slivers where a cut lands almost on the floor edge.
-                ring = Poly2.Close(Poly2.Open(Poly2.Difference(ring, cuts)));
+                ring = Poly2.Close(Poly2.Open(Poly2.Difference(ring, Cuts())));
             }
             float wallBottom = minZ - thick;
             // The floor edge a wall vertex belongs to: the nearest one, measured from the floor's side edge.
-            (WallRef w, float u, bool left, float score) Nearest(Vector2 p, bool roofedOnly)
+            // With nearZ, only floor edges within headroom of that height count (the level a stacked wall belongs to).
+            (WallRef w, float u, bool left, float score) Nearest(Vector2 p, bool roofedOnly, float? nearZ = null)
             {
                 (WallRef, float, bool, float) best = (default, 0f, false, float.MaxValue);
                 foreach (var w in wallRefs)
@@ -456,6 +487,7 @@ public static class MapBuilder
                     if (roofedOnly && float.IsNaN(w.Ceil)) continue;
                     var ab = w.B - w.A; float len2 = ab.LengthSquared();
                     float u = len2 < 1e-6f ? 0 : Math.Clamp(Vector2.Dot(p - w.A, ab) / len2, 0f, 1f);
+                    if (nearZ is float nz && MathF.Abs(w.ZA + (w.ZB - w.ZA) * u - nz) >= Headroom(thick)) continue;
                     float score = Vector2.Distance(p, w.A + ab * u) - (w.HwA + (w.HwB - w.HwA) * u);
                     if (score < best.Item4)
                         best = (w, u, (ab.X * (p.Y - w.A.Y) - ab.Y * (p.X - w.A.X)) >= 0, score);
@@ -464,9 +496,10 @@ public static class MapBuilder
             }
             // Each wall vertex takes its height from the nearest floor edge: that floor's height plus its wall
             // height (scaled by the path's wall profile). Walls therefore follow ramps and vary along paths.
-            float WallTop(Vector2 p)
+            float WallTopAt(Vector2 p, float? nearZ)
             {
-                var (w, u, left, score) = Nearest(p, false);
+                var (w, u, left, score) = Nearest(p, false, nearZ);
+                if (score == float.MaxValue && nearZ != null) (w, u, left, score) = Nearest(p, false);
                 float top = maxZ + s.WallHeight;
                 if (score < float.MaxValue)
                 {
@@ -478,35 +511,99 @@ public static class MapBuilder
             // Under a roof the wall meets the roof's top instead (raised or cut down to it), so there's no gap and
             // nothing pokes through. Covered paths roof their own edges; a ceiling region roofs whatever it covers
             // below its underside. The lowest roof over the vertex wins.
-            float RoofedTop(Vector2 p)
+            float RoofedTopAt(Vector2 p, float? nearZ)
             {
                 float floorZ = float.MinValue, roof = float.MaxValue;
-                var near = Nearest(p, false);
+                var near = Nearest(p, false, nearZ);
                 if (near.score < float.MaxValue) floorZ = near.w.ZA + (near.w.ZB - near.w.ZA) * near.u;
-                var (w, u, _, score) = Nearest(p, true);
+                else if (nearZ is float nz) floorZ = nz;
+                var (w, u, _, score) = Nearest(p, true, nearZ);
                 if (score <= s.WallThickness + 1f) roof = w.ZA + (w.ZB - w.ZA) * u + w.Ceil + thick;
                 var pt = new PointD(p.X, p.Y);
                 foreach (var (area, under) in ceilRegions)
                     if (under > floorZ && under + thick < roof && area.Any(a => Clipper.PointInPolygon(pt, a) != PointInPolygonResult.IsOutside))
                         roof = under + thick;
-                return roof < float.MaxValue ? MathF.Max(roof, wallBottom + 1f) : WallTop(p);
+                return roof < float.MaxValue ? MathF.Max(roof, wallBottom + 1f) : WallTopAt(p, nearZ);
             }
-            // Split the ring where roofs end, so each piece has vertices right at the roof's edge.
-            var pieces = new List<(PathsD area, Func<Vector2, float> top)>();
-            if (ceilCover.Count > 0)
+            var cover = ceilCover.Count > 0 ? Poly2.Union(ceilCover) : null;
+            var pieces = new List<(PathsD area, Func<Vector2, float> top, Func<Vector2, float> bottom)>();
+            // Split a piece of wall where roofs end, so each part has vertices right at the roof's edge.
+            void AddWall(PathsD area, Func<Vector2, float?> nearZ, Func<Vector2, float> bottom, Func<Vector2, float> cap = null)
             {
-                var cover = Poly2.Union(ceilCover);
-                pieces.Add((Poly2.Open(Poly2.Intersect(ring, cover)), RoofedTop));
-                pieces.Add((Poly2.Open(Poly2.Difference(ring, cover)), WallTop));
+                Func<Vector2, float> Capped(Func<Vector2, float> top) =>
+                    cap == null ? top : p => MathF.Max(MathF.Min(top(p), cap(p)), bottom(p) + 1f);
+                if (cover != null)
+                {
+                    pieces.Add((Poly2.Open(Poly2.Intersect(area, cover)), Capped(p => RoofedTopAt(p, nearZ(p))), bottom));
+                    pieces.Add((Poly2.Open(Poly2.Difference(area, cover)), Capped(p => WallTopAt(p, nearZ(p))), bottom));
+                }
+                else pieces.Add((area, Capped(p => WallTopAt(p, nearZ(p))), bottom));
             }
-            else pieces.Add((ring, WallTop));
+
+            // ---- Stacked levels (overpasses, balconies, ledges). Two walkable surfaces are joined when their
+            // heights are within headroom of each other (a step, a ramp meeting a floor): players walk from one to
+            // the other, so no wall between them. Where a surface meets one that isn't joined (a bridge over a
+            // corridor, the corridor under it), the outer ring above has no wall: it's inside the walkable
+            // outline. Those walls are added per surface: a railing along the upper one's edge (from its floor
+            // up), and the lower one's walls up to the underside of what's above.
+            var stacked = StackedContacts(surfaces, s.WallThickness, thick);
+            float SurfaceZ(Surface sf, Vector2 p) => sf.Ramp < 0 ? sf.ZMin : RampZ(rampCenters[sf.Ramp], p);
+            if (stacked.Count > 0)
+            {
+                // The outer ring near a stacked level takes its height from that level's floor edges only,
+                // highest level first, so a bridge's walls don't slope down to the corridor below at a corner.
+                var claimed = new PathsD();
+                foreach (var g in stacked.Keys.Select(i => surfaces[i]).GroupBy(sf => sf.Group).OrderByDescending(g => g.Max(sf => sf.ZMax)))
+                {
+                    var near = Poly2.Inflate(Poly2.Union(new PathsD(g.SelectMany(sf => sf.Area))), s.WallThickness + 1);
+                    var part = Poly2.Open(Poly2.Difference(Poly2.Intersect(ring, near), claimed));
+                    if (part.Count == 0) continue;
+                    claimed = Poly2.Union(new PathsD(claimed.Concat(part)));
+                    var sf0 = g.First();
+                    AddWall(part, p => SurfaceZ(sf0, p), _ => wallBottom);
+                }
+                ring = Poly2.Open(Poly2.Difference(ring, claimed));
+
+                // Walls between stacked surfaces, grouped per level (flat height or ramp run).
+                var inner = new Dictionary<long, PathsD>();
+                foreach (var (i, others) in stacked)
+                {
+                    var sf = surfaces[i];
+                    var band = Poly2.Close(Poly2.Difference(Poly2.Inflate(sf.Area, s.WallThickness), sf.Area));
+                    var w = Poly2.Intersect(band, Poly2.Union(new PathsD(others.SelectMany(o => surfaces[o].Area))));
+                    var joined = new PathsD();
+                    for (int j = 0; j < surfaces.Count; j++)
+                        if (j != i && Joined(sf, surfaces[j], thick) && sf.Box.Touches(surfaces[j].Box, s.WallThickness + 1)) joined.AddRange(surfaces[j].Area);
+                    if (joined.Count > 0) w = Poly2.Difference(w, Poly2.Union(joined));
+                    if (wallCuts.Count > 0) w = Poly2.Difference(w, Cuts(sf.ZMin, sf.ZMax));
+                    if (!inner.TryGetValue(sf.Group, out var acc)) inner[sf.Group] = acc = new PathsD();
+                    acc.AddRange(w);
+                }
+                foreach (var (group, area) in inner)
+                {
+                    var sf0 = surfaces.First(sf => sf.Group == group);
+                    float Floor(Vector2 p) => SurfaceZ(sf0, p);
+                    // Never through a surface overhead: stop under its floor slab.
+                    float Overhead(Vector2 p)
+                    {
+                        float z = Floor(p), cap = float.MaxValue;
+                        var pt = new PointD(p.X, p.Y);
+                        foreach (var o in surfaces)
+                            if (o.ZMin - z >= Headroom(thick) && o.Box.Contains(p, 1f) && o.Area.Any(a => Clipper.PointInPolygon(pt, a) != PointInPolygonResult.IsOutside))
+                                cap = MathF.Min(cap, SurfaceZ(o, p) - thick);
+                        return cap;
+                    }
+                    AddWall(Poly2.Open(Poly2.Close(Poly2.Union(area))), p => Floor(p), p => Floor(p) - thick, Overhead);
+                }
+            }
+            AddWall(ring, _ => null, _ => wallBottom);
             n = 0;
-            foreach (var (area, top) in pieces)
+            foreach (var (area, top, bottom) in pieces)
                 foreach (var shape in Poly2.ToShapes(area))
                 {
                     var m = new PolyMesh();
-                    Prism(m, shape, top, _ => wallBottom, s.WallMaterial, s.WallMaterial);
-                    map.Meshes.Add(new BuiltMesh { Name = $"wall_{n++}", Kind = MeshKind.Wall, Mesh = m });
+                    Prism(m, shape, top, bottom, s.WallMaterial, s.WallMaterial);
+                    if (m.Faces.Count > 0) map.Meshes.Add(new BuiltMesh { Name = $"wall_{n++}", Kind = MeshKind.Wall, Mesh = m });
                 }
         }
 
@@ -557,6 +654,68 @@ public static class MapBuilder
         });
 
         return map;
+    }
+
+    /// <summary>Vertical gap two walkable surfaces need to be separate levels: a standing player plus a floor slab.
+    /// Closer than this they're the same level (a step, a ramp meeting a floor) and no wall goes between them.</summary>
+    static float Headroom(float thick) => PlayerHeight + thick;
+
+    readonly record struct Box2(float MinX, float MinY, float MaxX, float MaxY)
+    {
+        public static Box2 Of(PathsD area)
+        {
+            float x0 = float.MaxValue, y0 = float.MaxValue, x1 = float.MinValue, y1 = float.MinValue;
+            foreach (var path in area)
+                foreach (var v in path) { x0 = MathF.Min(x0, (float)v.x); y0 = MathF.Min(y0, (float)v.y); x1 = MathF.Max(x1, (float)v.x); y1 = MathF.Max(y1, (float)v.y); }
+            return new Box2(x0, y0, x1, y1);
+        }
+        public bool Touches(Box2 o, float margin) => MinX - margin <= o.MaxX && o.MinX - margin <= MaxX && MinY - margin <= o.MaxY && o.MinY - margin <= MaxY;
+        public bool Contains(Vector2 p, float margin) => p.X >= MinX - margin && p.X <= MaxX + margin && p.Y >= MinY - margin && p.Y <= MaxY + margin;
+    }
+
+    /// <summary>A walkable surface with its height range: a flat level (Ramp = -1) or one section of a ramp run
+    /// (Ramp = the run's index). Group is shared by all of one level or one run: the walls are built per group.</summary>
+    sealed class Surface
+    {
+        public readonly PathsD Area; public readonly float ZMin, ZMax; public readonly int Ramp; public readonly Box2 Box;
+        public Surface(PathsD area, float zMin, float zMax, int ramp) { Area = area; ZMin = zMin; ZMax = zMax; Ramp = ramp; Box = Box2.Of(area); }
+        public long Group => Ramp >= 0 ? 2L * Ramp + 1 : 2L * (long)MathF.Round(ZMin);
+    }
+
+    static bool Joined(Surface a, Surface b, float thick) => b.ZMin - a.ZMax < Headroom(thick) && a.ZMin - b.ZMax < Headroom(thick);
+
+    /// <summary>For each surface whose wall band (out to the wall thickness) reaches into a surface it isn't joined
+    /// to, the indices of those surfaces. Empty for a single-level map.</summary>
+    static Dictionary<int, List<int>> StackedContacts(List<Surface> surfaces, float wallThickness, float thick)
+    {
+        var res = new Dictionary<int, List<int>>();
+        for (int i = 0; i < surfaces.Count; i++)
+        {
+            PathsD band = null;
+            for (int j = 0; j < surfaces.Count; j++)
+            {
+                if (i == j || Joined(surfaces[i], surfaces[j], thick) || !surfaces[i].Box.Touches(surfaces[j].Box, wallThickness + 1)) continue;
+                band ??= Poly2.Difference(Poly2.Inflate(surfaces[i].Area, wallThickness), surfaces[i].Area);
+                if (Poly2.Intersect(band, surfaces[j].Area).Sum(p => Math.Abs(Clipper.Area(p))) < 1) continue;
+                if (!res.TryGetValue(i, out var list)) res[i] = list = new List<int>();
+                list.Add(j);
+            }
+        }
+        return res;
+    }
+
+    /// <summary>Height of a ramp run at p: projected onto the nearest step of its centreline.</summary>
+    static float RampZ(List<(Vector2 a, Vector2 b, float za, float zb)> line, Vector2 p)
+    {
+        float best = float.MaxValue, z = line.Count > 0 ? line[0].za : 0;
+        foreach (var (a, b, za, zb) in line)
+        {
+            var ab = b - a; float len2 = ab.LengthSquared();
+            float u = len2 < 1e-6f ? 0 : Math.Clamp(Vector2.Dot(p - a, ab) / len2, 0f, 1f);
+            float d = Vector2.DistanceSquared(p, a + ab * u);
+            if (d < best) { best = d; z = za + (zb - za) * u; }
+        }
+        return z;
     }
 
     const float MiterLimit = 4f;     // sharp corners whose miter would reach further than this many half-widths get bevelled
@@ -781,6 +940,9 @@ public static class MapBuilder
         float tMin = float.MaxValue, tMax = float.MinValue;
         foreach (var p in pts) { float t = top(p); tMin = MathF.Min(tMin, t); tMax = MathF.Max(tMax, t); }
         var topFaces = tMax - tMin > 0.01f ? tris : faces;
+        float bMin = float.MaxValue, bMax = float.MinValue;
+        foreach (var p in pts) { float b = bottom(p); bMin = MathF.Min(bMin, b); bMax = MathF.Max(bMax, b); }
+        var bottomFaces = bMax - bMin > 0.01f ? tris : faces;
 
         var topIdx = new Dictionary<int, int>();
         var botIdx = new Dictionary<int, int>();
@@ -792,7 +954,7 @@ public static class MapBuilder
             for (int i = 0; i < f.Length; i++) edges.Add((f[i], f[(i + 1) % f.Length]));
 
         foreach (var f in topFaces) mesh.AddFace(f.Select(T).ToArray(), capMaterial);
-        foreach (var f in faces) mesh.AddFace(f.Reverse().Select(B).ToArray(), capMaterial);
+        foreach (var f in bottomFaces) mesh.AddFace(f.Reverse().Select(B).ToArray(), capMaterial);
 
         foreach (var (a, b) in edges)
             if (!edges.Contains((b, a)))

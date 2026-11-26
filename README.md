@@ -19,6 +19,22 @@ Open the folder in Godot 4.7.2 mono and press Play (F5). Everything is C#; the o
 Perimeter walls are generated around everything walkable. Each wall takes its height from the floor next to it
 (floor height + wall height), so walls follow ramps and stay low beside low corridors.
 
+### Overpasses and stacked levels
+
+Floors, paths and ramps can pass over each other: a bridge across a corridor, a balcony over a site, a corridor
+under a ramp. Two walkable surfaces count as one level when their heights are less than 88u apart (72u player
+height + the floor thickness): a step, or a ramp meeting a floor, and no wall goes between them. Surfaces further
+apart are separate levels:
+
+- the upper one gets walls (railings) along its edges where it passes over the lower one, standing on its own floor;
+- the lower one keeps its walls underneath, up to the underside of what's above;
+- outer walls next to a stacked level take that level's height, so a bridge's walls don't slope down to the corridor below.
+
+A path side with its wall switched off stays open on its own level only. A drop of 88u or more between two floors
+that touch (a ledge) is walled on both sides the same way; switch the path side off to leave it open. Floors that
+overlap with less than 88u between them get a warning, since nobody fits in between. The demo layout has an
+overpass crossing its covered corridor.
+
 ### Ceilings
 
 A path can have its own roof: tick **Ceiling** in the path's wall settings and set the clearance. That roof follows

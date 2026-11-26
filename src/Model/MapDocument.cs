@@ -203,8 +203,8 @@ public sealed class MapDocument
     public void Save(string path) => File.WriteAllText(path, ToJson());
     public static MapDocument Load(string path) => FromJson(File.ReadAllText(path));
 
-    /// <summary>A small layout that exercises every feature: two levels, a ramp, an obstacle, a pit, a covered
-    /// corridor, a ceiling region, spawns.</summary>
+    /// <summary>A small layout that exercises every feature: two levels, ramps, an obstacle, a pit, a covered
+    /// corridor with an overpass across it, a ceiling region, spawns.</summary>
     public static MapDocument CreateDemo()
     {
         var d = new MapDocument();
@@ -218,6 +218,12 @@ public sealed class MapDocument
             Width = 160,
             CeilingHeight = 160,
             Points = { new(0, 256, 0), new(0, -768, 0), new(1024, -768, 0) },
+        });
+        // Overpass: off the west corridor, up a ramp and across the covered corridor.
+        d.Paths.Add(new PathShape
+        {
+            Width = 128,
+            Points = { new(-1024, -512, 0), new(-768, -512, 0), new(-256, -512, 256), new(384, -512, 256) },
         });
         d.Regions.Add(new RegionShape
         {
