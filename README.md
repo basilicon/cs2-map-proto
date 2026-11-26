@@ -40,14 +40,14 @@ Editing stacked layouts follows the working elevation (Drawing section, PgUp/PgD
 - shapes a level or more away from it (88u) are drawn faint, and clicks pick shapes on the working level first;
 - where shapes overlap, click the selected one again (without dragging) to select the next shape under the cursor;
 - the top view leaves out geometry that starts a level or more above it, so a corridor under a bridge stays
-  visible; raise the working elevation to see and edit the bridge. The free camera always shows everything.
+  visible; raise the working elevation (Ctrl+wheel steps through the floor heights) to see and edit the bridge. The free camera always shows everything.
 
 ### Ceilings
 
 A path can have its own roof: tick **Ceiling** in the path's wall settings and set the clearance. That roof follows
 ramps and the elevation profile, and it reaches over the walls on both sides. A **Ceiling** region roofs whatever
 it covers, for example a room or part of a site. Walls under a roof meet it: they're raised or cut down to the
-roof's top, so there's no gap and nothing pokes through. Ceilings show in the free camera only; the top view draws
+roof's underside and the roof rests on them, so there's no gap and nothing pokes through. Ceilings show in the free camera only; the top view draws
 just their outlines.
 
 ### Path profiles
@@ -85,6 +85,7 @@ checkbox toggles it and Reset flattens it. Curves are saved in the layout file.
 | Click the selection again | Where shapes overlap (a bridge over a corridor), select the next one under the cursor |
 | Click a path / region line | Select the **whole shape**: drag, PgUp/PgDn, width, Z, C and Del then apply to all its points |
 | Shift+drag, PgUp/PgDn, Shift+wheel | Vertical offset of selection (or the working elevation while drawing) |
+| Ctrl+wheel (top view) | Working elevation to the next floor height up / down (walks through stacked levels) |
 | Ctrl+drag a marker | Move just that point, unwelding it from paths that share its position |
 | Ctrl+click a line | Insert a point |
 | Right-click a marker | Delete it (placed point, draft point, spawn; on a curve handle it makes the point sharp). In free cam use a quick click. |

@@ -508,9 +508,10 @@ public static class MapBuilder
                 }
                 return MathF.Max(top, wallBottom + 1f);
             }
-            // Under a roof the wall meets the roof's top instead (raised or cut down to it), so there's no gap and
-            // nothing pokes through. Covered paths roof their own edges; a ceiling region roofs whatever it covers
-            // below its underside. The lowest roof over the vertex wins.
+            // Under a roof the wall stops at the roof's underside instead (raised or cut down to it) and the roof,
+            // which reaches over the wall, rests on it: no gap, nothing poking through, and no faces in the same
+            // plane to flicker. Covered paths roof their own edges; a ceiling region roofs whatever it covers below
+            // its underside. The lowest roof over the vertex wins.
             float RoofedTopAt(Vector2 p, float? nearZ)
             {
                 float floorZ = float.MinValue, roof = float.MaxValue;
@@ -518,11 +519,11 @@ public static class MapBuilder
                 if (near.score < float.MaxValue) floorZ = near.w.ZA + (near.w.ZB - near.w.ZA) * near.u;
                 else if (nearZ is float nz) floorZ = nz;
                 var (w, u, _, score) = Nearest(p, true, nearZ);
-                if (score <= s.WallThickness + 1f) roof = w.ZA + (w.ZB - w.ZA) * u + w.Ceil + thick;
+                if (score <= s.WallThickness + 1f) roof = w.ZA + (w.ZB - w.ZA) * u + w.Ceil;
                 var pt = new PointD(p.X, p.Y);
                 foreach (var (area, under) in ceilRegions)
-                    if (under > floorZ && under + thick < roof && area.Any(a => Clipper.PointInPolygon(pt, a) != PointInPolygonResult.IsOutside))
-                        roof = under + thick;
+                    if (under > floorZ && under < roof && area.Any(a => Clipper.PointInPolygon(pt, a) != PointInPolygonResult.IsOutside))
+                        roof = under;
                 return roof < float.MaxValue ? MathF.Max(roof, wallBottom + 1f) : WallTopAt(p, nearZ);
             }
             var cover = ceilCover.Count > 0 ? Poly2.Union(ceilCover) : null;

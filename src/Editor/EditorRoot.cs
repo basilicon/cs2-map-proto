@@ -562,6 +562,31 @@ public partial class EditorRoot : Node3D
         AfterEdit();
     }
 
+    /// <summary>Distinct floor heights in the layout (path points, floor regions), lowest first.</summary>
+    List<float> FloorHeights()
+    {
+        var zs = Doc.Paths.SelectMany(p => p.Points.Select(v => v.Z))
+            .Concat(Doc.Regions.Where(r => r.Kind == Model.RegionKind.Floor).Select(r => r.Elevation))
+            .Select(z => MathF.Round(z)).Distinct().OrderBy(z => z).ToList();
+        return zs;
+    }
+
+    /// <summary>Ctrl+wheel (top view): working elevation to the next floor height above / below. The top view
+    /// then hides what's a level above it, so this walks down and up through stacked levels.</summary>
+    void StepLevel(int dir)
+    {
+        var zs = FloorHeights();
+        float? next = dir > 0 ? zs.Where(z => z > WorkZ + 0.5f).Cast<float?>().FirstOrDefault()
+                              : zs.Where(z => z < WorkZ - 0.5f).Cast<float?>().LastOrDefault();
+        if (next is not float z)
+        {
+            Ui.SetStatus(zs.Count == 0 ? "No floors yet." : dir > 0 ? $"Already at or above the highest floor ({zs[^1]}u)." : $"Already at or below the lowest floor ({zs[0]}u).");
+            return;
+        }
+        SetWorkZ(z);
+        Ui.SetStatus($"Working elevation {z}u  ·  floor height {zs.IndexOf(z) + 1} of {zs.Count}");
+    }
+
     void SetWorkZ(float z)
     {
         WorkZ = z;
@@ -570,6 +595,14 @@ public partial class EditorRoot : Node3D
 
     void HandleMouseButton(InputEventMouseButton mb)
     {
+        // Ctrl+wheel in the top view: step the working elevation through the layout's floor heights.
+        if (mb.Pressed && mb.CtrlPressed && Rig.IsTopDown && (mb.ButtonIndex == MouseButton.WheelUp || mb.ButtonIndex == MouseButton.WheelDown))
+        {
+            StepLevel(mb.ButtonIndex == MouseButton.WheelUp ? +1 : -1);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         // Shift+wheel: vertical offset (same as PageUp/PageDown).
         if (mb.Pressed && mb.ShiftPressed && (mb.ButtonIndex == MouseButton.WheelUp || mb.ButtonIndex == MouseButton.WheelDown))
         {
