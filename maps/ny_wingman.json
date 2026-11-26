@@ -1,0 +1,487 @@
+{
+  "Version": 1,
+  "GridSize": 16,
+  "Paths": [
+    {
+      "Points": [
+        [
+          -288,
+          -1328,
+          0
+        ],
+        [
+          -864,
+          -1328,
+          0
+        ],
+        [
+          -864,
+          848,
+          0
+        ],
+        [
+          160,
+          848,
+          0
+        ]
+      ],
+      "Width": 288
+    },
+    {
+      "Points": [
+        [
+          -864,
+          48,
+          0
+        ],
+        [
+          352,
+          48,
+          0
+        ],
+        [
+          352,
+          624,
+          0
+        ]
+      ],
+      "Width": 224
+    },
+    {
+      "Points": [
+        [
+          224,
+          -1248,
+          0
+        ],
+        [
+          224,
+          -960,
+          0
+        ],
+        [
+          224,
+          -672,
+          -192
+        ]
+      ],
+      "Width": 192
+    },
+    {
+      "Points": [
+        [
+          224,
+          -672,
+          -192
+        ],
+        [
+          224,
+          -208,
+          -192
+        ],
+        [
+          656,
+          -208,
+          -192
+        ],
+        [
+          656,
+          160,
+          -192
+        ]
+      ],
+      "Width": 192,
+      "CeilingHeight": 144
+    },
+    {
+      "Points": [
+        [
+          656,
+          160,
+          -192
+        ],
+        [
+          656,
+          448,
+          0
+        ],
+        [
+          656,
+          608,
+          0
+        ]
+      ],
+      "Width": 192
+    }
+  ],
+  "Regions": [
+    {
+      "Kind": "Floor",
+      "Points": [
+        [
+          -416,
+          -1504,
+          0
+        ],
+        [
+          416,
+          -1504,
+          0
+        ],
+        [
+          416,
+          -1152,
+          0
+        ],
+        [
+          -416,
+          -1152,
+          0
+        ]
+      ],
+      "Elevation": 0,
+      "Height": 128
+    },
+    {
+      "Kind": "Floor",
+      "Points": [
+        [
+          0,
+          496,
+          0
+        ],
+        [
+          1120,
+          496,
+          0
+        ],
+        [
+          1120,
+          1216,
+          0
+        ],
+        [
+          0,
+          1216,
+          0
+        ]
+      ],
+      "Elevation": 0,
+      "Height": 128
+    },
+    {
+      "Kind": "Floor",
+      "Points": [
+        [
+          240,
+          1152,
+          0
+        ],
+        [
+          880,
+          1152,
+          0
+        ],
+        [
+          880,
+          1632,
+          0
+        ],
+        [
+          240,
+          1632,
+          0
+        ]
+      ],
+      "Elevation": 0,
+      "Height": 128
+    },
+    {
+      "Kind": "Obstacle",
+      "Points": [
+        [
+          288,
+          688,
+          0
+        ],
+        [
+          400,
+          688,
+          0
+        ],
+        [
+          400,
+          800,
+          0
+        ],
+        [
+          288,
+          800,
+          0
+        ]
+      ],
+      "Elevation": 0,
+      "Height": 96
+    },
+    {
+      "Kind": "Obstacle",
+      "Points": [
+        [
+          736,
+          880,
+          0
+        ],
+        [
+          848,
+          880,
+          0
+        ],
+        [
+          848,
+          992,
+          0
+        ],
+        [
+          736,
+          992,
+          0
+        ]
+      ],
+      "Elevation": 0,
+      "Height": 128
+    },
+    {
+      "Kind": "Obstacle",
+      "Points": [
+        [
+          480,
+          1056,
+          0
+        ],
+        [
+          608,
+          1056,
+          0
+        ],
+        [
+          608,
+          1120,
+          0
+        ],
+        [
+          480,
+          1120,
+          0
+        ]
+      ],
+      "Elevation": 0,
+      "Height": 56
+    },
+    {
+      "Kind": "Pit",
+      "Points": [
+        [
+          896,
+          560,
+          0
+        ],
+        [
+          1056,
+          560,
+          0
+        ],
+        [
+          1056,
+          720,
+          0
+        ],
+        [
+          896,
+          720,
+          0
+        ]
+      ],
+      "Elevation": 0,
+      "Height": 128
+    },
+    {
+      "Kind": "Obstacle",
+      "Points": [
+        [
+          -928,
+          -480,
+          0
+        ],
+        [
+          -800,
+          -480,
+          0
+        ],
+        [
+          -800,
+          -272,
+          0
+        ],
+        [
+          -928,
+          -272,
+          0
+        ]
+      ],
+      "Elevation": 0,
+      "Height": 64
+    },
+    {
+      "Kind": "Obstacle",
+      "Points": [
+        [
+          -912,
+          592,
+          0
+        ],
+        [
+          -832,
+          592,
+          0
+        ],
+        [
+          -832,
+          672,
+          0
+        ],
+        [
+          -912,
+          672,
+          0
+        ]
+      ],
+      "Elevation": 0,
+      "Height": 72
+    },
+    {
+      "Kind": "Ceiling",
+      "Points": [
+        [
+          -1008,
+          176,
+          0
+        ],
+        [
+          -720,
+          176,
+          0
+        ],
+        [
+          -720,
+          560,
+          0
+        ],
+        [
+          -1008,
+          560,
+          0
+        ]
+      ],
+      "Elevation": 0,
+      "Height": 160
+    }
+  ],
+  "Spawns": [
+    {
+      "Team": "T",
+      "Position": [
+        -240,
+        -1408,
+        0
+      ],
+      "Yaw": 90
+    },
+    {
+      "Team": "T",
+      "Position": [
+        -80,
+        -1408,
+        0
+      ],
+      "Yaw": 90
+    },
+    {
+      "Team": "T",
+      "Position": [
+        80,
+        -1408,
+        0
+      ],
+      "Yaw": 90
+    },
+    {
+      "Team": "T",
+      "Position": [
+        240,
+        -1408,
+        0
+      ],
+      "Yaw": 90
+    },
+    {
+      "Team": "CT",
+      "Position": [
+        384,
+        1488,
+        0
+      ],
+      "Yaw": 270
+    },
+    {
+      "Team": "CT",
+      "Position": [
+        528,
+        1488,
+        0
+      ],
+      "Yaw": 270
+    },
+    {
+      "Team": "CT",
+      "Position": [
+        672,
+        1488,
+        0
+      ],
+      "Yaw": 270
+    },
+    {
+      "Team": "CT",
+      "Position": [
+        816,
+        1488,
+        0
+      ],
+      "Yaw": 270
+    }
+  ],
+  "Build": {
+    "FloorThickness": 16,
+    "PerimeterWalls": true,
+    "WallHeight": 320,
+    "WallThickness": 16,
+    "ObstacleUnjumpableHeight": 65
+  },
+  "Plugins": {
+    "concept-sketch": {
+      "Theme": "New York City street, Manhattan, brownstone and brick apartment buildings, fire escapes, storefronts, asphalt and concrete sidewalks",
+      "Style": "video game level concept art, detailed environment, highly detailed",
+      "Negative": "people, text, watermark, signature, blurry, lowres, deformed, cartoon",
+      "Views": 6,
+      "Seed": 2027,
+      "Overview": true,
+      "Steps": 30,
+      "Guidance": 7.0,
+      "ControlScale": 1.0,
+      "SegScale": 0.5,
+      "PerView": 1,
+      "TextureViews": 16,
+      "TexelSize": 0
+    }
+  }
+}
