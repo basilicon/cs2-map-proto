@@ -168,8 +168,8 @@ public static class MapBuilder
                 for (int q = from; q <= to; q++) { center.Add(P(q)); zs.Add(Z(q)); widths.Add(HW(q)); }
                 var (left, right) = RibbonEdges(center, widths);
                 var zl = new List<float>(zs); var zr = new List<float>(zs);
-                RemoveLoops(left, zl);
-                RemoveLoops(right, zr);
+                RemoveLoops(left, zl, center);
+                RemoveLoops(right, zr, center);
                 for (int q = 0; q + 1 < center.Count; q++)
                 {
                     var section = Poly2.Ccw(new[] { right[q], right[q + 1], left[q + 1], left[q] });
@@ -386,8 +386,10 @@ public static class MapBuilder
     /// <summary>Removes self-intersections from one edge of a ribbon. On the inside of a bend that is tighter
     /// than the half-width (a sharp corner between short segments, a tight curve) the mitred offset points
     /// overshoot each other and the edge crosses itself; everything between the crossing collapses onto the
-    /// crossing point, which is where the real corridor edge turns. Heights collapse with it.</summary>
-    static void RemoveLoops(List<Vector2> s, List<float> z)
+    /// crossing point, which is where the real corridor edge turns. Heights collapse with it. An edge step that
+    /// still runs backwards against the centreline (half-width longer than the segments on both sides of a
+    /// corner, so nothing crosses) is collapsed onto its start.</summary>
+    static void RemoveLoops(List<Vector2> s, List<float> z, List<Vector2> c)
     {
         int n = s.Count;
         for (int a = 0; a + 2 < n; a++)
@@ -400,6 +402,8 @@ public static class MapBuilder
                 a = b - 1;
                 break;
             }
+        for (int a = 0; a + 1 < n; a++)
+            if (Vector2.Dot(s[a + 1] - s[a], c[a + 1] - c[a]) < 0) { s[a + 1] = s[a]; z[a + 1] = z[a]; }
     }
 
     static bool SegmentIntersect(Vector2 p, Vector2 p2, Vector2 q, Vector2 q2, out float u, out float v)
