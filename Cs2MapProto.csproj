@@ -7,6 +7,11 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Add-ons build as their own assemblies (see addons/README.md), never into the editor. -->
+    <Compile Remove="addons/**" />
+    <None Remove="addons/**" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Clipper2" Version="1.5.4" />
   </ItemGroup>
 </Project>

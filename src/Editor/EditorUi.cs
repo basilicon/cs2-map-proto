@@ -13,6 +13,8 @@ public partial class EditorUi : Control
 {
     [ExportGroup("Top bar")]
     [Export] public MenuButton FileMenu { get; set; }
+    /// <summary>Plugin commands; hidden until a plugin adds one.</summary>
+    [Export] public MenuButton ToolsMenu { get; set; }
     [Export] public Button ExportButton { get; set; }
     [Export] public Button UndoButton { get; set; }
     [Export] public Button RedoButton { get; set; }
@@ -159,6 +161,12 @@ public partial class EditorUi : Control
             }
         };
 
+        if (ToolsMenu != null)
+        {
+            ToolsMenu.Visible = false;
+            ToolsMenu.GetPopup().IdPressed += id => { if (id >= 0 && id < _toolsActions.Count) _toolsActions[(int)id](); };
+        }
+
         ExportButton.Pressed += () => ExportRequested?.Invoke();
         UndoButton.Pressed += () => UndoRequested?.Invoke();
         RedoButton.Pressed += () => RedoRequested?.Invoke();
@@ -233,6 +241,17 @@ public partial class EditorUi : Control
         VmapPath.FocusExited += () => SettingsEdited?.Invoke();
 
         LastExport.Text = "";
+    }
+
+    readonly List<Action> _toolsActions = new();
+
+    /// <summary>Adds a plugin command to the Tools menu (and shows the menu).</summary>
+    public void AddToolsItem(string label, Action onPressed)
+    {
+        if (ToolsMenu == null) return;
+        ToolsMenu.GetPopup().AddItem(label, _toolsActions.Count);
+        _toolsActions.Add(onPressed);
+        ToolsMenu.Visible = true;
     }
 
     /// <summary>Opens the .vmap save dialog, starting in the current target's folder or, if none is set, in

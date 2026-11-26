@@ -8,9 +8,19 @@ namespace Cs2MapProto.Editor;
 public partial class PreviewRenderer : Node3D
 {
     [Export] public Shader PreviewShader { get; set; }
+    /// <summary>Flat-colour / depth shader for the off-screen capture copies (SceneCapture).</summary>
+    [Export] public Shader CaptureShader { get; set; }
+
+    /// <summary>Visual layers: the editor camera sees Preview (and the overlay on its own layer); the capture
+    /// copies sit on layers only SceneCapture's camera renders.</summary>
+    public const uint PreviewLayer = 1, OverlayLayer = 1 << 1, SemanticLayer = 1 << 18, DepthLayer = 1 << 19;
 
     readonly Dictionary<MeshKind, ShaderMaterial> _materials = new();
-    MeshInstance3D _instance;
+    readonly Dictionary<MeshKind, ShaderMaterial> _semanticMaterials = new();
+    MeshInstance3D _instance, _semantic, _depth;
+    ShaderMaterial _depthMaterial;
+
+    public ShaderMaterial DepthMaterial => _depthMaterial;
 
     static readonly Dictionary<MeshKind, Color> Colors = new()
     {
@@ -24,8 +34,26 @@ public partial class PreviewRenderer : Node3D
 
     public override void _Ready()
     {
-        _instance = new MeshInstance3D { Name = "PreviewMesh" };
+        _instance = new MeshInstance3D { Name = "PreviewMesh", Layers = PreviewLayer };
         AddChild(_instance);
+        if (CaptureShader == null) return;
+        _depthMaterial = new ShaderMaterial { Shader = CaptureShader };
+        _depthMaterial.SetShaderParameter("mode", 1);
+        var noShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        _semantic = new MeshInstance3D { Name = "SemanticMesh", Layers = SemanticLayer, CastShadow = noShadow };
+        _depth = new MeshInstance3D { Name = "DepthMesh", Layers = DepthLayer, CastShadow = noShadow, MaterialOverride = _depthMaterial };
+        AddChild(_semantic);
+        AddChild(_depth);
+    }
+
+    Material SemanticMaterialFor(MeshKind kind)
+    {
+        if (_semanticMaterials.TryGetValue(kind, out var m)) return m;
+        m = new ShaderMaterial { Shader = CaptureShader };
+        m.SetShaderParameter("mode", 0);
+        m.SetShaderParameter("flat_color", Plugins.CapturePalette.Kinds[kind]);
+        _semanticMaterials[kind] = m;
+        return m;
     }
 
     Material MaterialFor(MeshKind kind)
@@ -71,5 +99,11 @@ public partial class PreviewRenderer : Node3D
             mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(kind));
         }
         _instance.Mesh = mesh;
+        if (_semantic == null) return;
+        // The capture copies share the mesh; the semantic one swaps each kind's surface for its flat colour.
+        _semantic.Mesh = _depth.Mesh = mesh;
+        int surface = 0;
+        foreach (var (kind, (v, _)) in byKind)
+            if (v.Count > 0) _semantic.SetSurfaceOverrideMaterial(surface++, SemanticMaterialFor(kind));
     }
 }

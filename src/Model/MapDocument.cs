@@ -175,6 +175,9 @@ public sealed class MapDocument
     public List<SpawnPoint> Spawns { get; set; } = new();
     public BuildSettings Build { get; set; } = new();
     public ExportSettings Export { get; set; } = new();
+    /// <summary>Add-on data by plugin id (see Plugins.IEditorHost.SetDocumentData). Left out of the file when empty.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, JsonElement> Plugins { get; set; }
 
     static readonly JsonSerializerOptions JsonOpts = new()
     {

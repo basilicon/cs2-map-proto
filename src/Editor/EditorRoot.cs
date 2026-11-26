@@ -39,6 +39,11 @@ public partial class EditorRoot : Node3D
     public readonly List<Vec3> Draft = new();
     public Vector3? CursorHammer { get; private set; }
     public BuiltMap Built { get; private set; }
+    public string DocPath => _docPath;
+
+    /// <summary>For plugins (via EditorHost): the document was edited or replaced / the build was refreshed.</summary>
+    public event Action DocumentChanged, Rebuilt;
+    List<Plugins.IEditorPlugin> _plugins = new();
 
     /// <summary>Path whose curve handles are shown (selected path, point or tangent), or -1.</summary>
     public int SelectedPath => Selected.Type is HandleType.PathPoint or HandleType.TangentOut or HandleType.TangentIn ? Selected.Shape : -1;
@@ -63,6 +68,12 @@ public partial class EditorRoot : Node3D
     public override void _Ready()
     {
         if (TryRunCli()) return;
+
+        // The capture copies of the preview are only for SceneCapture's camera.
+        Rig.Camera.CullMask &= ~(PreviewRenderer.SemanticLayer | PreviewRenderer.DepthLayer);
+        var capture = new SceneCapture { Name = "SceneCapture", Preview = Preview };
+        AddChild(capture);
+        _plugins = Plugins.PluginLoader.LoadAll(new Plugins.EditorHost(this, capture));
 
         Ui.SetTool(CurrentTool);
         Ui.ToolChosen += SetTool;
@@ -135,11 +146,19 @@ public partial class EditorRoot : Node3D
         Ui.SetStatus(status);
         _unsaved = false;
         RefreshDocInfo();
+        DocumentChanged?.Invoke();
     }
 
     bool _unsaved;
 
-    void MarkUnsaved()
+    public override void _ExitTree()
+    {
+        foreach (var p in _plugins)
+            try { p.Shutdown(); } catch (Exception e) { GD.PrintErr($"Plugin {p.Id} shutdown: {e}"); }
+        _plugins.Clear();
+    }
+
+    internal void MarkUnsaved()
     {
         if (_unsaved) return;
         _unsaved = true;
@@ -182,6 +201,7 @@ public partial class EditorRoot : Node3D
         if (!keepSelection || !HandleExists(Selected)) Selected = Handle.None;
         _dirtyGeometry = true;
         RefreshSelectionUi();
+        DocumentChanged?.Invoke();
     }
 
     void SaveTo(string path)
@@ -205,6 +225,7 @@ public partial class EditorRoot : Node3D
             Built = MapBuilder.Build(Doc);
             Preview.Show(Built);
             Ui.SetWarnings(Built.Warnings.Distinct().ToList());
+            Rebuilt?.Invoke();
         }
         catch (Exception e)
         {

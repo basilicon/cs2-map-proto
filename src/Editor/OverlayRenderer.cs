@@ -47,6 +47,8 @@ public partial class OverlayRenderer : Node3D
         _inWorldMesh = new ImmediateMesh();
         _onTop = new MeshInstance3D { Mesh = _onTopMesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         _inWorld = new MeshInstance3D { Mesh = _inWorldMesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        // Own layer, so off-screen captures (SceneCapture) leave the handles and grid out.
+        _onTop.Layers = _inWorld.Layers = PreviewRenderer.OverlayLayer;
         AddChild(_inWorld);
         AddChild(_onTop);
     }

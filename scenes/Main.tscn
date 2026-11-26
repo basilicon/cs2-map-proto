@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://src/Editor/OverlayRenderer.cs" id="4_x"]
 [ext_resource type="Script" path="res://src/Editor/EditorUi.cs" id="5_x"]
 [ext_resource type="Shader" path="res://shaders/preview.gdshader" id="6_x"]
+[ext_resource type="Shader" path="res://shaders/capture.gdshader" id="23_x"]
 [ext_resource type="Script" path="res://src/Editor/CurveEditor.cs" id="7_x"]
 [ext_resource type="Texture2D" path="res://ui/icons/undo.svg" id="8_x"]
 [ext_resource type="Texture2D" path="res://ui/icons/redo.svg" id="9_x"]
@@ -57,13 +58,14 @@ environment = SubResource("Env")
 [node name="Preview" type="Node3D" parent="."]
 script = ExtResource("3_x")
 PreviewShader = ExtResource("6_x")
+CaptureShader = ExtResource("23_x")
 
 [node name="Overlay" type="Node3D" parent="."]
 script = ExtResource("4_x")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("DocName", "DirtyChip", "UndoButton", "RedoButton", "TopViewButton", "FreeViewButton", "FileMenu", "ExportButton", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ToolInfo", "WarningButton", "WarningsPopover", "WarningsClose", "Warnings", "ProfilePanel", "ProfileKind", "ProfileEnabled", "ProfileReset", "ProfileEditor", "SelectionIcon", "SelectionLabel", "SelectionSub", "PropsSection", "KindRow", "RegionKind", "ZRow", "ZLabel", "PointZ", "HeightRow", "HeightLabel", "RegionHeight", "WidthRow", "WidthLabel", "PathWidth", "CornerRow", "CornerSharp", "CornerBevel", "CornerRound", "CornerSmooth", "EndpointRow", "EndpointDepth", "WallsRow", "WallLeftOn", "WallLeftHeight", "WallRightOn", "WallRightHeight", "WallProfile", "WallsSection", "YawRow", "YawLabel", "SpawnYaw", "WorkElevation", "GridSize", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Status", "LastExport", "CursorLabel", "OpenDialog", "SaveDialog", "ExportDialog")]
+[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("DocName", "DirtyChip", "UndoButton", "RedoButton", "TopViewButton", "FreeViewButton", "FileMenu", "ToolsMenu", "ExportButton", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ToolInfo", "WarningButton", "WarningsPopover", "WarningsClose", "Warnings", "ProfilePanel", "ProfileKind", "ProfileEnabled", "ProfileReset", "ProfileEditor", "SelectionIcon", "SelectionLabel", "SelectionSub", "PropsSection", "KindRow", "RegionKind", "ZRow", "ZLabel", "PointZ", "HeightRow", "HeightLabel", "RegionHeight", "WidthRow", "WidthLabel", "PathWidth", "CornerRow", "CornerSharp", "CornerBevel", "CornerRound", "CornerSmooth", "EndpointRow", "EndpointDepth", "WallsRow", "WallLeftOn", "WallLeftHeight", "WallRightOn", "WallRightHeight", "WallProfile", "WallsSection", "YawRow", "YawLabel", "SpawnYaw", "WorkElevation", "GridSize", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Status", "LastExport", "CursorLabel", "OpenDialog", "SaveDialog", "ExportDialog")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -79,6 +81,7 @@ RedoButton = NodePath("%RedoButton")
 TopViewButton = NodePath("%TopViewButton")
 FreeViewButton = NodePath("%FreeViewButton")
 FileMenu = NodePath("%FileMenu")
+ToolsMenu = NodePath("%ToolsMenu")
 ExportButton = NodePath("%ExportButton")
 SelectTool = NodePath("%SelectTool")
 PathTool = NodePath("%PathTool")
@@ -244,6 +247,15 @@ text = "File"
 icon = ExtResource("12_x")
 flat = false
 tooltip_text = "New, open and save layouts (.json)"
+
+[node name="ToolsMenu" type="MenuButton" parent="UI/Root/Layout/TopBar/HBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"FlatButton"
+text = "Tools"
+flat = false
+tooltip_text = "Commands added by plugins"
 
 [node name="ExportButton" type="Button" parent="UI/Root/Layout/TopBar/HBox"]
 unique_name_in_owner = true
