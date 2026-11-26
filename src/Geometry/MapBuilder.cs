@@ -59,6 +59,8 @@ public static class MapBuilder
         float minZ = float.MaxValue, maxZ = float.MinValue;
         var wallRefs = new List<WallRef>(); // floor edges that set the height of nearby perimeter walls
         var wallCuts = new PathsD();         // areas where a path side has its wall switched off
+        var wallKeeps = new PathsD();        // walls of walled sides and floor regions: no cut removes these
+        bool anyOpenSide = s.PerimeterWalls && doc.Paths.Any(p => !p.WallLeft || !p.WallRight);
 
         void AddLevel(float z, PathD poly)
         {
@@ -93,14 +95,15 @@ public static class MapBuilder
 
             // A side without walls: cut a strip along that side out of the wall ring. The strip runs from the
             // centreline out past the wall, segment by segment, plus a wedge on the outside of each bend; free
-            // flat ends include their extension, so the end wall itself stays. Strips of the other (walled)
-            // side are taken back out, so the inside of a hairpin can't eat the opposite wall.
-            if (s.PerimeterWalls && (!path.WallLeft || !path.WallRight))
+            // flat ends include their extension, so the end wall itself stays. The same strip (without the
+            // margin) along a walled side protects that wall: the inside of a hairpin can't eat the opposite
+            // wall, and a branch keeps its wall right up to the corner where it meets an open side.
+            if (anyOpenSide)
             {
-                PathsD SideStrip(float side)
+                PathsD SideStrip(float side, float margin)
                 {
                     var res = new PathsD();
-                    float R(int i) => HW(i) + s.WallThickness + 2f;
+                    float R(int i) => HW(i) + s.WallThickness + margin;
                     Vector2 N(int seg) { var d = Vector2.Normalize(P(seg + 1) - P(seg)); return float.IsNaN(d.X) ? Vector2.Zero : new Vector2(-d.Y, d.X) * side; }
                     for (int i = 0; i + 1 < m; i++)
                     {
@@ -115,7 +118,7 @@ public static class MapBuilder
                         float cr = na.X * nb.Y - na.Y * nb.X;
                         // Outside of the bend on this side: the normals turn away from the side (clockwise for +side).
                         if (cr * side >= -1e-4f) continue;
-                        float r = HW(i) + 2f * s.WallThickness + 2f;
+                        float r = HW(i) + 2f * s.WallThickness + margin;
                         var wedge = CornerArc(P(i), na * r, nb * r, r, CornerStyle.Sharp);
                         wedge.Insert(0, P(i));
                         res.Add(Poly2.Ccw(wedge));
@@ -133,11 +136,8 @@ public static class MapBuilder
                     EndStrip(m - 1, -1, endDepth, Flat(m - 2));
                     return res;
                 }
-                var cut = new PathsD();
-                var keep = new PathsD();
-                (path.WallLeft ? keep : cut).AddRange(SideStrip(+1f));
-                (path.WallRight ? keep : cut).AddRange(SideStrip(-1f));
-                wallCuts.AddRange(keep.Count > 0 ? Poly2.Difference(Poly2.Union(cut), Poly2.Union(keep)) : Poly2.Union(cut));
+                if (path.WallLeft) wallKeeps.AddRange(SideStrip(+1f, 0f)); else wallCuts.AddRange(SideStrip(+1f, 2f));
+                if (path.WallRight) wallKeeps.AddRange(SideStrip(-1f, 0f)); else wallCuts.AddRange(SideStrip(-1f, 2f));
             }
 
             // Maximal runs of same-kind segments; run [k, j] covers samples k..j+1.
@@ -228,6 +228,7 @@ public static class MapBuilder
         foreach (var r in doc.Regions.Where(r => r.Kind == RegionKind.Floor && r.Points.Count >= 3))
         {
             AddLevel(r.Elevation, Poly2.Ccw(r.Points.Select(p => new Vector2(p.X, p.Y))));
+            if (anyOpenSide) wallKeeps.AddRange(Poly2.Inflate(new PathsD { Poly2.Ccw(r.Points.Select(p => new Vector2(p.X, p.Y))) }, s.WallThickness));
             for (int i = 0; i < r.Points.Count; i++)
             {
                 var a = r.Points[i]; var b = r.Points[(i + 1) % r.Points.Count];
@@ -317,7 +318,12 @@ public static class MapBuilder
             // Closing merges places where the ring touches itself at a single corner (a pinch), which would
             // otherwise give vertical edges shared by four faces - not representable in Hammer's mesh format.
             var ring = Poly2.Close(Poly2.Difference(Poly2.Inflate(all, s.WallThickness), all));
-            if (wallCuts.Count > 0) ring = Poly2.Close(Poly2.Difference(ring, wallCuts));
+            if (wallCuts.Count > 0)
+            {
+                var cuts = Poly2.Union(wallCuts);
+                if (wallKeeps.Count > 0) cuts = Poly2.Difference(cuts, Poly2.Union(wallKeeps));
+                ring = Poly2.Close(Poly2.Difference(ring, cuts));
+            }
             float wallBottom = minZ - thick;
             // Each wall vertex takes its height from the nearest floor edge: that floor's height plus its wall
             // height (scaled by the path's wall profile). Walls therefore follow ramps and vary along paths.
