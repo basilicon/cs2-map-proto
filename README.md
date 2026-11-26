@@ -51,7 +51,8 @@ checkbox toggles it and Reset flattens it. Curves are saved in the layout file.
 | Path tool: click an existing path point | Start from / snap to it: from an end point it **extends** that path, elsewhere it starts a **branch** |
 | B | Branch (or extend) from the selected path point |
 | "Endpoint depth" field | With a path's first or last point selected: how far the floor runs past that end (0 = stop at the point). Separate per end and independent of width. |
-| C / "Curved" checkbox | Toggle Bezier curve on the selected point (or whole path); drag the pink handles to shape it |
+| "Corner" dropdown | How the path turns at the selected point (or every point of a selected path): **Sharp** (edges meet in a point; corners sharper than ~30° are bevelled), **Bevel** (cut straight), **Round** (arc), **Smooth** (Bezier curve; drag the pink handles to shape it) |
+| C | Toggle the selected point (or whole path) between Smooth and its Sharp/Bevel/Round style |
 | Del / Shift+Del | Delete point / whole shape |
 
 Path points that sit exactly on top of each other (branch junctions, joined ends) are welded: dragging one moves all of them.

@@ -48,7 +48,7 @@ script = ExtResource("4_over")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("NewButton", "OpenButton", "SaveButton", "ExportButton", "OpenDialog", "SaveDialog", "ExportDialog", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ViewToggle", "WorkElevation", "GridSize", "SelectionLabel", "PathWidth", "SmoothPoint", "EndpointDepth", "RegionKind", "PointZ", "RegionHeight", "SpawnYaw", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Warnings", "Status", "ProfilePanel", "ProfileKind", "ProfileEnabled", "ProfileReset", "ProfileEditor")]
+[node name="Root" type="Control" parent="UI" node_paths=PackedStringArray("NewButton", "OpenButton", "SaveButton", "ExportButton", "OpenDialog", "SaveDialog", "ExportDialog", "SelectTool", "PathTool", "FloorTool", "ObstacleTool", "PitTool", "SpawnTTool", "SpawnCTTool", "ViewToggle", "WorkElevation", "GridSize", "SelectionLabel", "PathWidth", "PointCorner", "EndpointDepth", "RegionKind", "PointZ", "RegionHeight", "SpawnYaw", "PerimeterWalls", "WallHeight", "FloorThickness", "VmapPath", "BrowseVmap", "ConvertBinary", "CompileAfter", "Warnings", "Status", "ProfilePanel", "ProfileKind", "ProfileEnabled", "ProfileReset", "ProfileEditor")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -76,7 +76,7 @@ WorkElevation = NodePath("Side/Scroll/VBox/Grid/WorkElevation")
 GridSize = NodePath("Side/Scroll/VBox/Grid/GridSize")
 SelectionLabel = NodePath("Side/Scroll/VBox/SelectionLabel")
 PathWidth = NodePath("Side/Scroll/VBox/Grid/PathWidth")
-SmoothPoint = NodePath("Side/Scroll/VBox/Grid/SmoothPoint")
+PointCorner = NodePath("Side/Scroll/VBox/Grid/PointCorner")
 EndpointDepth = NodePath("Side/Scroll/VBox/Grid/EndpointDepth")
 RegionKind = NodePath("Side/Scroll/VBox/Grid/RegionKind")
 PointZ = NodePath("Side/Scroll/VBox/Grid/PointZ")
@@ -273,14 +273,14 @@ step = 8.0
 allow_greater = true
 suffix = "u"
 
-[node name="SmoothPointLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="PointCornerLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
 layout_mode = 2
-text = "Curved (C)"
+text = "Corner (C)"
 
-[node name="SmoothPoint" type="CheckBox" parent="UI/Root/Side/Scroll/VBox/Grid"]
+[node name="PointCorner" type="OptionButton" parent="UI/Root/Side/Scroll/VBox/Grid"]
 layout_mode = 2
-tooltip_text = "Bezier curve through this point (or every point when the whole path is selected). Drag the handles to shape it."
-text = "Smooth"
+size_flags_horizontal = 3
+tooltip_text = "How the path turns at this point (or every point when the whole path is selected). Sharp: edges meet in a point. Bevel: corner cut straight. Round: arc around the point. Smooth: Bezier curve through the point; drag the handles to shape it. C toggles Smooth."
 
 [node name="RegionKindLabel" type="Label" parent="UI/Root/Side/Scroll/VBox/Grid"]
 layout_mode = 2

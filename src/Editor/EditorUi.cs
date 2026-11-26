@@ -33,7 +33,7 @@ public partial class EditorUi : Control
     [Export] public SpinBox GridSize { get; set; }
     [Export] public Label SelectionLabel { get; set; }
     [Export] public SpinBox PathWidth { get; set; }
-    [Export] public CheckBox SmoothPoint { get; set; }
+    [Export] public OptionButton PointCorner { get; set; }
     [Export] public SpinBox EndpointDepth { get; set; }
     [Export] public OptionButton RegionKind { get; set; }
     [Export] public SpinBox PointZ { get; set; }
@@ -118,7 +118,15 @@ public partial class EditorUi : Control
         foreach (var s in new[] { PathWidth, EndpointDepth, PointZ, RegionHeight, SpawnYaw })
             s.ValueChanged += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
         RegionKind.ItemSelected += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
-        SmoothPoint.Toggled += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
+        if (PointCorner != null && PointCorner.ItemCount == 0)
+        {
+            // Ids match Model.CornerStyle, plus Smooth (a Bezier point) last.
+            PointCorner.AddItem("Sharp", 0);
+            PointCorner.AddItem("Bevel", 1);
+            PointCorner.AddItem("Round", 2);
+            PointCorner.AddItem("Smooth", 3);
+        }
+        PointCorner.ItemSelected += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
 
         if (ProfileKind != null && ProfileKind.ItemCount == 0)
         {

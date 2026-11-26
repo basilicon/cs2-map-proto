@@ -806,7 +806,19 @@ public partial class EditorRoot : Node3D
         AfterEdit();
     }
 
-    /// <summary>C: toggle the selected path point between sharp and curved (or the whole path if it's selected).</summary>
+    const int SmoothCornerId = 3; // Corner dropdown: Model.CornerStyle values, then Smooth
+
+    /// <summary>Corner dropdown id of a point: Smooth when it has a Bezier tangent, otherwise its corner style.</summary>
+    static int CornerId(PathShape p, int i) => p.IsCurved(i) ? SmoothCornerId : (int)p.CornerAt(i);
+
+    static void ApplyCorner(PathShape p, int i, int id)
+    {
+        if (id == SmoothCornerId) { if (!p.IsCurved(i)) p.SetTangent(i, p.AutoTangent(i)); return; }
+        p.SetTangent(i, default);
+        p.SetCorner(i, (CornerStyle)id);
+    }
+
+    /// <summary>C: toggle the selected path point between Smooth and its corner style (or the whole path if it's selected).</summary>
     void ToggleCurve()
     {
         int s = SelectedPath;
@@ -818,7 +830,7 @@ public partial class EditorRoot : Node3D
             bool makeCurved = !path.AnyCurved();
             var autos = Enumerable.Range(0, path.Points.Count).Select(path.AutoTangent).ToList();
             for (int i = 0; i < path.Points.Count; i++) path.SetTangent(i, makeCurved ? autos[i] : default);
-            Ui.SetStatus(makeCurved ? "Path curved (drag the handles to shape it)" : "Path made sharp");
+            Ui.SetStatus(makeCurved ? "Path smooth (drag the handles to shape it)" : "Path corners back to their corner styles");
         }
         else
         {
@@ -826,7 +838,7 @@ public partial class EditorRoot : Node3D
             bool makeCurved = !path.IsCurved(i);
             path.SetTangent(i, makeCurved ? path.AutoTangent(i) : default);
             Selected = new Handle(HandleType.PathPoint, s, i);
-            Ui.SetStatus(makeCurved ? "Point curved (drag the handles to shape it)" : "Point made sharp");
+            Ui.SetStatus(makeCurved ? "Point smooth (drag the handles to shape it)" : $"Point corner: {path.CornerAt(i)}");
         }
         AfterEdit();
     }
@@ -856,8 +868,8 @@ public partial class EditorRoot : Node3D
             Ui.PathWidth.Editable = Ui.RegionHeight.Editable = Ui.PointZ.Editable = Ui.SpawnYaw.Editable = false;
             Ui.EndpointDepth.Editable = false;
             Ui.RegionKind.Disabled = true;
-            Ui.SmoothPoint.Disabled = true;
-            Ui.SmoothPoint.ButtonPressed = false;
+            Ui.PointCorner.Disabled = true;
+            Ui.PointCorner.Select(-1);
             switch (Selected.Type)
             {
                 case HandleType.PathPoint or HandleType.TangentOut or HandleType.TangentIn:
@@ -868,8 +880,14 @@ public partial class EditorRoot : Node3D
                         : $"Path {Selected.Shape}, point {pi}/{p.Points.Count - 1}";
                     Ui.PathWidth.Value = p.Width; Ui.PathWidth.Editable = true;
                     Ui.PointZ.Value = p.Points[pi].Z; Ui.PointZ.Editable = true;
-                    Ui.SmoothPoint.ButtonPressed = Selected.IsWhole ? p.AnyCurved() : p.IsCurved(pi);
-                    Ui.SmoothPoint.Disabled = false;
+                    if (Selected.IsWhole)
+                    {
+                        // Whole path: show the shared corner option, or nothing when points differ.
+                        var ids = Enumerable.Range(0, p.Points.Count).Select(i => CornerId(p, i)).Distinct().ToList();
+                        Ui.PointCorner.Select(ids.Count == 1 ? ids[0] : -1);
+                    }
+                    else Ui.PointCorner.Select(CornerId(p, pi));
+                    Ui.PointCorner.Disabled = false;
                     if (!Selected.IsWhole && Selected.Type == HandleType.PathPoint && IsEndpoint(p, pi))
                     {
                         Ui.EndpointDepth.Value = (pi == 0 ? p.StartDepth : p.EndDepth) ?? p.Width * 0.5f;
@@ -985,12 +1003,10 @@ public partial class EditorRoot : Node3D
                     // Whole path: Z shows the first point; editing it shifts every point, keeping ramps intact.
                     float dz = newZ - p.Points[0].Z;
                     for (int i = 0; i < p.Points.Count; i++) p.Points[i] = new Vec3(p.Points[i].X, p.Points[i].Y, p.Points[i].Z + dz);
-                    bool wantCurved = Ui.SmoothPoint.ButtonPressed;
-                    if (wantCurved != p.AnyCurved())
-                    {
-                        var autos = Enumerable.Range(0, p.Points.Count).Select(p.AutoTangent).ToList();
-                        for (int i = 0; i < p.Points.Count; i++) p.SetTangent(i, wantCurved ? autos[i] : default);
-                    }
+                    int want = Ui.PointCorner.Selected;
+                    if (want >= 0)
+                        for (int i = 0; i < p.Points.Count; i++)
+                            if (CornerId(p, i) != want) ApplyCorner(p, i, want);
                 }
                 else
                 {
@@ -1001,8 +1017,8 @@ public partial class EditorRoot : Node3D
                         if (Selected.Point == 0) p.StartDepth = (float)Ui.EndpointDepth.Value;
                         else p.EndDepth = (float)Ui.EndpointDepth.Value;
                     }
-                    if (Ui.SmoothPoint.ButtonPressed != p.IsCurved(Selected.Point))
-                        p.SetTangent(Selected.Point, Ui.SmoothPoint.ButtonPressed ? p.AutoTangent(Selected.Point) : default);
+                    int want = Ui.PointCorner.Selected;
+                    if (want >= 0 && want != CornerId(p, Selected.Point)) ApplyCorner(p, Selected.Point, want);
                 }
                 break;
             case HandleType.RegionPoint:

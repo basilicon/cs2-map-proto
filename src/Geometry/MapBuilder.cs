@@ -74,7 +74,6 @@ public static class MapBuilder
             var samples = PathSampler.Flatten(path);
             if (samples.Count < 2) continue;
             float hw = MathF.Max(8f, path.Width * 0.5f);
-            bool varWidth = path.WidthCurve.Enabled;
             float HW(int i) => MathF.Max(8f, path.Width * 0.5f * samples[i].WidthScale);
             float startDepth = MathF.Max(0f, path.StartDepth ?? hw);
             float endDepth = MathF.Max(0f, path.EndDepth ?? hw);
@@ -83,6 +82,9 @@ public static class MapBuilder
             float Z(int i) => samples[i].P.Z;
             bool Flat(int seg) => MathF.Abs(Z(seg + 1) - Z(seg)) < FlatEpsilon;
             float Wall(int i) => s.WallHeight * samples[i].WallScale;
+            // Corner style of a sample: path points use their own; in-between samples (curve steps) are mitred,
+            // which is exact for their small turns.
+            CornerStyle Corner(int i) => samples[i].IsNode ? path.CornerAt(samples[i].Segment) : CornerStyle.Sharp;
             for (int i = 0; i + 1 < m; i++)
                 wallRefs.Add(new WallRef(P(i), P(i + 1), Z(i), Z(i + 1), HW(i), HW(i + 1), Wall(i), Wall(i + 1)));
 
@@ -99,16 +101,11 @@ public static class MapBuilder
                 k = j + 1;
             }
 
-            // Wedges fill the outside of corners where a flat run meets a ramp.
+            // Where a flat run meets a ramp both end square at the point; fill the outside of the corner.
             for (int i = 1; i < m - 1; i++)
             {
                 if (Flat(i - 1) == Flat(i)) continue;
-                var p = P(i);
-                var d0 = Vector2.Normalize(p - P(i - 1)); var d1 = Vector2.Normalize(P(i + 1) - p);
-                if (float.IsNaN(d0.X) || float.IsNaN(d1.X)) continue;
-                var n0 = new Vector2(-d0.Y, d0.X) * HW(i); var n1 = new Vector2(-d1.Y, d1.X) * HW(i);
-                AddLevel(Z(i), Poly2.Triangle(p, p + n0, p + n1));
-                AddLevel(Z(i), Poly2.Triangle(p, p - n0, p - n1));
+                if (JointFill(P(i - 1), P(i), P(i + 1), HW(i), Corner(i)) is { } fill) AddLevel(Z(i), fill);
             }
 
             // Direction a free end points in, measured over at least EndDirSpan so a tiny last step can't skew it
@@ -128,20 +125,16 @@ public static class MapBuilder
             {
                 var line = new List<Vector2>();
                 var widths = new List<float>();
+                var corners = new List<CornerStyle>();
                 // Free flat ends are extended by half the width (a square end), so dead ends and T-junctions
                 // overlap neatly. Extending the line itself (rather than adding a separate cap shape) keeps the
                 // end in one piece with the corridor, so there's no seam or wedge gap between them.
-                if (from == 0 && startDepth > 0.5f && EndDir(0, +1) is var d0 && d0 != Vector2.Zero) { line.Add(P(0) + d0 * startDepth); widths.Add(HW(0)); }
-                for (int q = from; q <= to; q++) { line.Add(P(q)); widths.Add(HW(q)); }
-                if (to == m - 1 && endDepth > 0.5f && EndDir(m - 1, -1) is var d1 && d1 != Vector2.Zero) { line.Add(P(m - 1) + d1 * endDepth); widths.Add(HW(m - 1)); }
-                if (!varWidth)
-                {
-                    foreach (var poly in Poly2.ThickenPolyline(line, hw)) AddLevel(Z(from), poly);
-                    return;
-                }
-                // Width varies along the run: one trapezoid per step (square ends, each with its own end widths)
-                // plus a wedge filling the outside of every joint, unioned. Unlike mitred sections this can't
-                // overshoot on the inside of a bend when the width exceeds the step length.
+                if (from == 0 && startDepth > 0.5f && EndDir(0, +1) is var d0 && d0 != Vector2.Zero) { line.Add(P(0) + d0 * startDepth); widths.Add(HW(0)); corners.Add(CornerStyle.Sharp); }
+                for (int q = from; q <= to; q++) { line.Add(P(q)); widths.Add(HW(q)); corners.Add(Corner(q)); }
+                if (to == m - 1 && endDepth > 0.5f && EndDir(m - 1, -1) is var d1 && d1 != Vector2.Zero) { line.Add(P(m - 1) + d1 * endDepth); widths.Add(HW(m - 1)); corners.Add(CornerStyle.Sharp); }
+                // One trapezoid per step (square ends, each with its own end widths) plus the chosen corner shape
+                // filling the outside of every joint, unioned. Unlike mitred sections this can't overshoot on the
+                // inside of a bend when the width exceeds the step length.
                 for (int q = 0; q + 1 < line.Count; q++)
                 {
                     var d = Vector2.Normalize(line[q + 1] - line[q]);
@@ -150,23 +143,19 @@ public static class MapBuilder
                     AddLevel(Z(from), Poly2.Ccw(new[] { line[q] - nq * widths[q], line[q + 1] - nq * widths[q + 1], line[q + 1] + nq * widths[q + 1], line[q] + nq * widths[q] }));
                 }
                 for (int q = 1; q + 1 < line.Count; q++)
-                {
-                    var p = line[q];
-                    var da = Vector2.Normalize(p - line[q - 1]); var db = Vector2.Normalize(line[q + 1] - p);
-                    if (float.IsNaN(da.X) || float.IsNaN(db.X)) continue;
-                    if (da.X * db.Y - da.Y * db.X is var cr && MathF.Abs(cr) < 1e-4f) continue; // straight: nothing to fill
-                    var na = new Vector2(-da.Y, da.X) * widths[q]; var nb = new Vector2(-db.Y, db.X) * widths[q];
-                    AddLevel(Z(from), cr > 0 ? Poly2.Triangle(p, p - na, p - nb) : Poly2.Triangle(p, p + na, p + nb));
-                }
+                    if (JointFill(line[q - 1], line[q], line[q + 1], widths[q], corners[q]) is { } fill) AddLevel(Z(from), fill);
             }
 
             void EmitRampRun(int from, int to)
             {
-                var center = new List<Vector2>();
-                var zs = new List<float>();
+                var pts = new List<Vector2>();
                 var widths = new List<float>();
-                for (int q = from; q <= to; q++) { center.Add(P(q)); zs.Add(Z(q)); widths.Add(HW(q)); }
-                var (left, right) = RibbonEdges(center, widths);
+                var corners = new List<CornerStyle>();
+                for (int q = from; q <= to; q++) { pts.Add(P(q)); widths.Add(HW(q)); corners.Add(Corner(q)); }
+                // Bevelled / rounded joints add extra edge points; src maps each back to its sample.
+                var (left, right, src) = RibbonEdges(pts, widths, corners);
+                var center = src.Select(k => pts[k]).ToList();
+                var zs = src.Select(k => Z(from + k)).ToList();
                 var zl = new List<float>(zs); var zr = new List<float>(zs);
                 RemoveLoops(left, zl, center);
                 RemoveLoops(right, zr, center);
@@ -353,11 +342,57 @@ public static class MapBuilder
         return map;
     }
 
-    /// <summary>Left/right edges of a centreline offset by hw, with mitred joints (miter clamped to 2x).</summary>
-    static (List<Vector2> left, List<Vector2> right) RibbonEdges(List<Vector2> c, List<float> hws)
+    const float MiterLimit = 4f;     // sharp corners whose miter would reach further than this many half-widths get bevelled
+    const float RoundStepDeg = 15f;  // arc resolution of rounded corners
+
+    /// <summary>Points of the outer edge around a joint, from the incoming segment's offset (p + na) to the
+    /// outgoing one's (p + nb), for the given style. na/nb are the outward normals scaled by the half-width.</summary>
+    static List<Vector2> CornerArc(Vector2 p, Vector2 na, Vector2 nb, float hw, CornerStyle style)
+    {
+        var pts = new List<Vector2> { p + na };
+        var bis = Vector2.Normalize(na + nb);
+        float cos = float.IsNaN(bis.X) ? 0f : Vector2.Dot(bis, na) / hw; // cos of half the turn
+        if (style == CornerStyle.Sharp && cos > 1f / MiterLimit) pts.Add(p + bis * (hw / cos));
+        else if (style == CornerStyle.Round)
+        {
+            float a0 = MathF.Atan2(na.Y, na.X), a1 = MathF.Atan2(nb.Y, nb.X);
+            float delta = a1 - a0;
+            while (delta > MathF.PI) delta -= 2 * MathF.PI;
+            while (delta < -MathF.PI) delta += 2 * MathF.PI;
+            int steps = Math.Max(1, (int)MathF.Ceiling(MathF.Abs(delta) / (RoundStepDeg * MathF.PI / 180f)));
+            for (int k = 1; k < steps; k++)
+            {
+                float a = a0 + delta * k / steps;
+                pts.Add(p + new Vector2(MathF.Cos(a), MathF.Sin(a)) * hw);
+            }
+        }
+        pts.Add(p + nb);
+        return pts;
+    }
+
+    /// <summary>Polygon filling the outside of the joint at b (between segments a-b and b-c) for corridors whose
+    /// sections end square at b; null when the path runs straight on.</summary>
+    static PathD JointFill(Vector2 a, Vector2 b, Vector2 c, float hw, CornerStyle style)
+    {
+        var da = Vector2.Normalize(b - a); var db = Vector2.Normalize(c - b);
+        if (float.IsNaN(da.X) || float.IsNaN(db.X)) return null;
+        float cr = da.X * db.Y - da.Y * db.X;
+        if (MathF.Abs(cr) < 1e-4f && Vector2.Dot(da, db) > 0) return null;
+        float side = cr > 0 ? -1f : 1f; // outside of a left turn is the right
+        var na = new Vector2(-da.Y, da.X) * hw * side; var nb = new Vector2(-db.Y, db.X) * hw * side;
+        var poly = CornerArc(b, na, nb, hw, style);
+        poly.Insert(0, b);
+        return Poly2.Ccw(poly);
+    }
+
+    /// <summary>Left/right edges of a centreline offset by hw. Joints use their corner style on the outside of
+    /// the bend (sharp = mitred, bevel, round: these add edge points, while the inside repeats its miter point);
+    /// src gives the centreline index of every edge point.</summary>
+    static (List<Vector2> left, List<Vector2> right, List<int> src) RibbonEdges(List<Vector2> c, List<float> hws, List<CornerStyle> corners)
     {
         var left = new List<Vector2>(c.Count);
         var right = new List<Vector2>(c.Count);
+        var src = new List<int>(c.Count);
         Vector2 Normal(int seg)
         {
             var d = Vector2.Normalize(c[seg + 1] - c[seg]);
@@ -365,22 +400,37 @@ public static class MapBuilder
         }
         for (int i = 0; i < c.Count; i++)
         {
-            Vector2 n;
             float hw = hws[i];
-            float len = hw;
-            if (i == 0) n = Normal(0);
-            else if (i == c.Count - 1) n = Normal(i - 1);
-            else
+            if (i == 0 || i == c.Count - 1)
             {
-                var n0 = Normal(i - 1); var n1 = Normal(i);
-                n = Vector2.Normalize(n0 + n1);
-                if (float.IsNaN(n.X)) n = n0;
-                len = hw / MathF.Max(0.5f, Vector2.Dot(n, n0));
+                var n = Normal(i == 0 ? 0 : i - 1);
+                left.Add(c[i] + n * hw); right.Add(c[i] - n * hw); src.Add(i);
+                continue;
             }
-            left.Add(c[i] + n * len);
-            right.Add(c[i] - n * len);
+            var n0 = Normal(i - 1); var n1 = Normal(i);
+            var bis = Vector2.Normalize(n0 + n1);
+            float cos = float.IsNaN(bis.X) ? 0f : Vector2.Dot(bis, n0);
+            if (float.IsNaN(bis.X)) bis = n0;
+            // Inside of the bend: the true miter point (overshoot is cleaned up by RemoveLoops).
+            var inner = bis * (hw / MathF.Max(0.1f, cos));
+            float cr = n0.X * n1.Y - n0.Y * n1.X; // same sign as the turn
+            if (MathF.Abs(cr) < 1e-4f && cos > 0)
+            {
+                left.Add(c[i] + n0 * hw); right.Add(c[i] - n0 * hw); src.Add(i);
+                continue;
+            }
+            bool leftTurn = cr > 0;
+            // Outer side is the right of a left turn: normals point left, so flip them.
+            var arc = leftTurn ? CornerArc(c[i], -n0 * hw, -n1 * hw, hw, corners[i]) : CornerArc(c[i], n0 * hw, n1 * hw, hw, corners[i]);
+            if (corners[i] == CornerStyle.Sharp && arc.Count == 3) arc = new List<Vector2> { arc[1] }; // one miter point
+            foreach (var o in arc)
+            {
+                if (leftTurn) { left.Add(c[i] + inner); right.Add(o); }
+                else { left.Add(o); right.Add(c[i] - inner); }
+                src.Add(i);
+            }
         }
-        return (left, right);
+        return (left, right, src);
     }
 
     /// <summary>Removes self-intersections from one edge of a ribbon. On the inside of a bend that is tighter

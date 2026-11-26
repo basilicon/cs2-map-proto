@@ -19,6 +19,17 @@ public struct Vec3
 
 /// <summary>A walkable corridor: a polyline with a width. Each point carries its own floor height,
 /// so consecutive points at different Z become ramps.</summary>
+/// <summary>How the corridor's outer edge turns at a path point.</summary>
+public enum CornerStyle
+{
+    /// <summary>Edges meet in a point (mitred; very acute corners are bevelled so they can't spike out).</summary>
+    Sharp,
+    /// <summary>Corner cut off with one straight edge.</summary>
+    Bevel,
+    /// <summary>Corner rounded with an arc around the point.</summary>
+    Round,
+}
+
 public sealed class PathShape
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -28,6 +39,9 @@ public sealed class PathShape
     /// <summary>Per-point Bezier tangent (XY offset to the outgoing control point; the incoming one is mirrored).
     /// Zero = sharp corner. Kept parallel to Points; use the helpers below to edit both together.</summary>
     public List<Vec3> Tangents { get; set; } = new();
+
+    /// <summary>Per-point corner style (only matters at interior points). Kept parallel to Points.</summary>
+    public List<CornerStyle> Corners { get; set; } = new();
 
     /// <summary>How far the floor extends past the first / last point when that end is a free, flat end
     /// (0 = stop exactly at the point). Independent of Width; older files default to half the width.</summary>
@@ -50,7 +64,13 @@ public sealed class PathShape
         EndDepth ??= Width * 0.5f;
         while (Tangents.Count < Points.Count) Tangents.Add(default);
         if (Tangents.Count > Points.Count) Tangents.RemoveRange(Points.Count, Tangents.Count - Points.Count);
+        Corners ??= new();
+        while (Corners.Count < Points.Count) Corners.Add(CornerStyle.Sharp);
+        if (Corners.Count > Points.Count) Corners.RemoveRange(Points.Count, Corners.Count - Points.Count);
     }
+
+    public CornerStyle CornerAt(int i) => i >= 0 && i < Corners.Count ? Corners[i] : CornerStyle.Sharp;
+    public void SetCorner(int i, CornerStyle c) { Normalize(); Corners[i] = c; }
 
     public Vec3 TangentAt(int i) => i >= 0 && i < Tangents.Count ? Tangents[i] : default;
     public static bool IsZero(Vec3 t) => MathF.Abs(t.X) < 0.01f && MathF.Abs(t.Y) < 0.01f;
@@ -58,9 +78,9 @@ public sealed class PathShape
     public bool AnyCurved() { for (int i = 0; i < Points.Count; i++) if (IsCurved(i)) return true; return false; }
 
     public void SetTangent(int i, Vec3 t) { Normalize(); Tangents[i] = new Vec3(t.X, t.Y, 0); }
-    public void InsertPoint(int i, Vec3 p, Vec3 tangent = default) { Normalize(); Points.Insert(i, p); Tangents.Insert(i, tangent); }
-    public void AddPoint(Vec3 p, Vec3 tangent = default) => InsertPoint(Points.Count, p, tangent);
-    public void RemovePoint(int i) { Normalize(); Points.RemoveAt(i); Tangents.RemoveAt(i); }
+    public void InsertPoint(int i, Vec3 p, Vec3 tangent = default, CornerStyle corner = CornerStyle.Sharp) { Normalize(); Points.Insert(i, p); Tangents.Insert(i, tangent); Corners.Insert(i, corner); }
+    public void AddPoint(Vec3 p, Vec3 tangent = default, CornerStyle corner = CornerStyle.Sharp) => InsertPoint(Points.Count, p, tangent, corner);
+    public void RemovePoint(int i) { Normalize(); Points.RemoveAt(i); Tangents.RemoveAt(i); Corners.RemoveAt(i); }
 
     /// <summary>Catmull-Rom style tangent through the neighbours: a sensible default curve.</summary>
     public Vec3 AutoTangent(int i)
@@ -78,6 +98,7 @@ public sealed class PathShape
         Normalize();
         Points.Reverse();
         Tangents.Reverse();
+        Corners.Reverse();
         (StartDepth, EndDepth) = (EndDepth, StartDepth);
         for (int i = 0; i < Tangents.Count; i++) Tangents[i] = new Vec3(-Tangents[i].X, -Tangents[i].Y, 0);
     }
