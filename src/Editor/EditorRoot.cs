@@ -83,6 +83,7 @@ public partial class EditorRoot : Node3D
         Ui.SettingsEdited += () => { ApplySettingsEdits(); MarkUnsaved(); RefreshSelectionUi(); };
         Rig.RightClicked += HandleRightClick;
         Ui.ProfileKindChanged += RefreshProfileUi;
+        Ui.WallProfileRequested += () => { Ui.ProfileKind.Select(WallProfileKind); RefreshProfileUi(); };
         Ui.ProfileEditStarted += PushUndo;
         Ui.ProfileChanged += ApplyProfileEdit;
         Ui.ProfileEnabledToggled += SetProfileEnabled;
@@ -925,8 +926,6 @@ public partial class EditorRoot : Node3D
                     Ui.WallRightOn.ButtonPressed = p.WallRight;
                     Ui.WallLeftHeight.Value = p.WallHeightLeft ?? Doc.Build.WallHeight;
                     Ui.WallRightHeight.Value = p.WallHeightRight ?? Doc.Build.WallHeight;
-                    Ui.WallLeftHeight.Editable = p.WallLeft;
-                    Ui.WallRightHeight.Editable = p.WallRight;
                     if (Selected.IsWhole)
                     {
                         // Whole path: show the shared corner option, or nothing when points differ.
@@ -976,12 +975,15 @@ public partial class EditorRoot : Node3D
                     break;
             }
         });
+        Ui.SetPathWallsEnabled(Doc.Build.PerimeterWalls);
         RefreshProfileUi();
     }
 
     static bool IsEndpoint(PathShape p, int i) => i == 0 || i == p.Points.Count - 1;
 
     // ------------------------------------------------------------------ path profile curves
+
+    const int WallProfileKind = 2; // ProfileKind dropdown: Width, Elevation, Wall height
 
     int ProfileKindIndex => Ui.ProfileKind.Selected < 0 ? 0 : Ui.ProfileKind.Selected;
 
@@ -1064,8 +1066,6 @@ public partial class EditorRoot : Node3D
                 float wl = (float)Ui.WallLeftHeight.Value, wr = (float)Ui.WallRightHeight.Value;
                 if (MathF.Abs(wl - (p.WallHeightLeft ?? Doc.Build.WallHeight)) > 0.01f) p.WallHeightLeft = wl;
                 if (MathF.Abs(wr - (p.WallHeightRight ?? Doc.Build.WallHeight)) > 0.01f) p.WallHeightRight = wr;
-                Ui.WallLeftHeight.Editable = p.WallLeft;
-                Ui.WallRightHeight.Editable = p.WallRight;
                 float newZ = (float)Ui.PointZ.Value;
                 if (Selected.IsWhole)
                 {

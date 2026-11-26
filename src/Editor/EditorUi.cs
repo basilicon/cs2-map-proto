@@ -63,11 +63,6 @@ public partial class EditorUi : Control
     [Export] public Button CornerSmooth { get; set; }
     [Export] public Control EndpointRow { get; set; }
     [Export] public SpinBox EndpointDepth { get; set; }
-    [Export] public Control WallsRow { get; set; }
-    [Export] public CheckBox WallLeftOn { get; set; }
-    [Export] public SpinBox WallLeftHeight { get; set; }
-    [Export] public CheckBox WallRightOn { get; set; }
-    [Export] public SpinBox WallRightHeight { get; set; }
     [Export] public Control YawRow { get; set; }
     [Export] public Label YawLabel { get; set; }
     [Export] public SpinBox SpawnYaw { get; set; }
@@ -83,9 +78,19 @@ public partial class EditorUi : Control
     [Export] public Button ProfileReset { get; set; }
     [Export] public CurveEditor ProfileEditor { get; set; }
 
-    [ExportGroup("Inspector: build")]
+    [ExportGroup("Inspector: walls")]
+    [Export] public FoldableContainer WallsSection { get; set; }
     [Export] public CheckBox PerimeterWalls { get; set; }
     [Export] public SpinBox WallHeight { get; set; }
+    /// <summary>Per-path part of the section, shown while a path is selected.</summary>
+    [Export] public Control WallsRow { get; set; }
+    [Export] public CheckBox WallLeftOn { get; set; }
+    [Export] public SpinBox WallLeftHeight { get; set; }
+    [Export] public CheckBox WallRightOn { get; set; }
+    [Export] public SpinBox WallRightHeight { get; set; }
+    [Export] public Button WallProfile { get; set; }
+
+    [ExportGroup("Inspector: build")]
     [Export] public SpinBox FloorThickness { get; set; }
 
     [ExportGroup("Inspector: export")]
@@ -105,6 +110,7 @@ public partial class EditorUi : Control
     public event Action<string> OpenChosen, SaveChosen;
     public event Action PropertiesEdited;   // any selection property control changed
     public event Action SettingsEdited;     // build/export/grid controls changed
+    public event Action WallProfileRequested;
     public event Action ProfileKindChanged, ProfileResetRequested, ProfileEditStarted, ProfileChanged;
     public event Action<bool> ProfileEnabledToggled;
 
@@ -194,6 +200,7 @@ public partial class EditorUi : Control
             s.ValueChanged += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
         WallLeftOn.Toggled += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
         WallRightOn.Toggled += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
+        WallProfile.Pressed += () => WallProfileRequested?.Invoke();
         RegionKind.ItemSelected += _ => { if (!_silent) PropertiesEdited?.Invoke(); };
 
         // Corner segmented control. Index matches Model.CornerStyle, plus Smooth (a Bezier point) last.
@@ -314,6 +321,16 @@ public partial class EditorUi : Control
             SelectionIcon.Texture = b.Icon;
             SelectionIcon.Modulate = b.GetThemeColor("icon_normal_color");
         }
+    }
+
+    /// <summary>Per-path wall controls: a side's height only edits while that side has a wall, and nothing
+    /// edits while walls are off for the whole map.</summary>
+    public void SetPathWallsEnabled(bool walls)
+    {
+        WallLeftOn.Disabled = WallRightOn.Disabled = WallProfile.Disabled = !walls;
+        WallLeftHeight.Editable = walls && WallLeftOn.ButtonPressed;
+        WallRightHeight.Editable = walls && WallRightOn.ButtonPressed;
+        WallHeight.Editable = walls;
     }
 
     /// <summary>Selected corner option (0 Sharp, 1 Bevel, 2 Round, 3 Smooth), or -1 when none / mixed.</summary>
