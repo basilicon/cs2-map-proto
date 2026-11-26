@@ -40,7 +40,7 @@ Editing stacked layouts follows the working elevation (Drawing section, PgUp/PgD
 - shapes a level or more away from it (88u) are drawn faint, and clicks pick shapes on the working level first;
 - where shapes overlap, click the selected one again (without dragging) to select the next shape under the cursor;
 - the top view leaves out geometry that starts a level or more above it, so a corridor under a bridge stays
-  visible; raise the working elevation (Ctrl+wheel steps through the floor heights) to see and edit the bridge. The free camera always shows everything.
+  visible; raise the working elevation (Ctrl+wheel in the top view) to see and edit the bridge. The free camera always shows everything.
 
 ### Ceilings
 
@@ -85,7 +85,7 @@ checkbox toggles it and Reset flattens it. Curves are saved in the layout file.
 | Click the selection again | Where shapes overlap (a bridge over a corridor), select the next one under the cursor |
 | Click a path / region line | Select the **whole shape**: drag, PgUp/PgDn, width, Z, C and Del then apply to all its points |
 | Shift+drag, PgUp/PgDn, Shift+wheel | Vertical offset of selection (or the working elevation while drawing) |
-| Ctrl+wheel (top view) | Working elevation to the next floor height up / down (walks through stacked levels) |
+| Ctrl+wheel (top view) | Working elevation up / down by one grid step, even with a selection (walks through stacked levels) |
 | Ctrl+drag a marker | Move just that point, unwelding it from paths that share its position |
 | Ctrl+click a line | Insert a point |
 | Right-click a marker | Delete it (placed point, draft point, spawn; on a curve handle it makes the point sharp). In free cam use a quick click. |

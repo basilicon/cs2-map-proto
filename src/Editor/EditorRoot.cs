@@ -562,29 +562,12 @@ public partial class EditorRoot : Node3D
         AfterEdit();
     }
 
-    /// <summary>Distinct floor heights in the layout (path points, floor regions), lowest first.</summary>
-    List<float> FloorHeights()
-    {
-        var zs = Doc.Paths.SelectMany(p => p.Points.Select(v => v.Z))
-            .Concat(Doc.Regions.Where(r => r.Kind == Model.RegionKind.Floor).Select(r => r.Elevation))
-            .Select(z => MathF.Round(z)).Distinct().OrderBy(z => z).ToList();
-        return zs;
-    }
-
-    /// <summary>Ctrl+wheel (top view): working elevation to the next floor height above / below. The top view
-    /// then hides what's a level above it, so this walks down and up through stacked levels.</summary>
+    /// <summary>Ctrl+wheel (top view): raise / lower the working elevation by one grid step, whatever is selected.
+    /// The top view hides what's a level above it, so this also walks down and up through stacked levels.</summary>
     void StepLevel(int dir)
     {
-        var zs = FloorHeights();
-        float? next = dir > 0 ? zs.Where(z => z > WorkZ + 0.5f).Cast<float?>().FirstOrDefault()
-                              : zs.Where(z => z < WorkZ - 0.5f).Cast<float?>().LastOrDefault();
-        if (next is not float z)
-        {
-            Ui.SetStatus(zs.Count == 0 ? "No floors yet." : dir > 0 ? $"Already at or above the highest floor ({zs[^1]}u)." : $"Already at or below the lowest floor ({zs[0]}u).");
-            return;
-        }
-        SetWorkZ(z);
-        Ui.SetStatus($"Working elevation {z}u  ·  floor height {zs.IndexOf(z) + 1} of {zs.Count}");
+        SetWorkZ(WorkZ + dir * StepZ());
+        Ui.SetStatus($"Working elevation {WorkZ}u");
     }
 
     void SetWorkZ(float z)
