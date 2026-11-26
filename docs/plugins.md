@@ -276,7 +276,30 @@ Changes to the add-on are committed and pushed from inside `addons/<Name>`; then
 it at the new version.
 
 **As a binary:** the plugin is the folder `plugins/<Name>/` (your DLL, its dependencies and any data files such as
-scripts). To install it in an exported build, copy that folder next to the executable.
+scripts). See below for installing it in an exported editor.
+
+### Plugins in an exported editor
+
+An export doesn't include any plugins: the DLLs aren't Godot resources, and the loader reads plain files, not the
+`.pck`. An exported editor only looks in the `plugins` folder next to its executable, so install a plugin by copying
+its built folder there:
+
+```
+CS2MapProto.exe
+CS2MapProto.pck
+data_Cs2MapProto_windows_x86_64/     the .NET runtime and the editor's assemblies
+plugins/
+  ConceptSketch/
+    ConceptSketch.dll
+    python/...
+```
+
+Plugins built in the normal development setup (Debug) work in a Release export: they bind to the editor's assemblies
+by name, and the export already has those loaded. Data folders are the same as in development, because `user://`
+depends only on the project name.
+
+A plugin is compiled against one version of the editor's API. After `IEditorHost` or model types it uses change,
+rebuild it for that editor; a mismatch shows up as a load error in the output (the editor keeps running without it).
 
 ## Rules of thumb
 

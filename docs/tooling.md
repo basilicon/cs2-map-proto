@@ -20,6 +20,24 @@ command line doesn't compile C#.
 Builds the layout (or the built-in demo), writes the `.vmap`, optionally compiles it with CS2's resourcecompiler,
 prints warnings and the result, and quits. This mode runs before the UI starts, so plugins aren't loaded.
 
+## Exporting the editor
+
+The repository has a "Windows Desktop" export preset (`export_presets.cfg`), writing to `build/windows/` (ignored by
+git). It needs Godot's 4.7.2 mono export templates.
+
+```powershell
+& $godot --headless --path . --export-release "Windows Desktop" build/windows/CS2MapProto.exe
+```
+
+The export builds the editor's C# itself, in its own `ExportRelease` configuration; the add-ons under `addons/` are
+not built or included. To ship plugins with it, build the solution as usual and copy `plugins/<Name>/` folders to
+`build/windows/plugins/` (see [plugins in an exported editor](plugins.md#plugins-in-an-exported-editor)).
+The exported executable takes the same arguments as below, after `--`:
+
+```powershell
+build\windows\CS2MapProto.exe -- --concept-sketch out\sketch
+```
+
 ## Opening a layout
 
 `--load <layout.json>` opens that layout at startup instead of the demo. It combines with every option below.

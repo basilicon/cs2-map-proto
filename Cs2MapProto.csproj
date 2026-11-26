@@ -17,8 +17,11 @@
 
   <!-- Build whatever add-ons are checked out (addons/<Name>/<Name>.csproj, usually git submodules) after the editor,
        so Play in Godot picks up their changes. Missing or uninitialised submodules are simply skipped. Their
-       reference back to this project is already built, so it isn't rebuilt (that would recurse). -->
-  <Target Name="BuildAddons" AfterTargets="Build" Condition="'$(BuildingAddon)' != 'true'">
+       reference back to this project is already built, so it isn't rebuilt (that would recurse).
+       Godot exports (ExportDebug / ExportRelease, published per platform) skip this: plugins aren't part of an
+       export, they're copied next to the exported executable (see docs/plugins.md). -->
+  <Target Name="BuildAddons" AfterTargets="Build"
+          Condition="'$(BuildingAddon)' != 'true' and !$(Configuration.StartsWith('Export')) and '$(_IsPublishing)' != 'true'">
     <ItemGroup>
       <AddonProject Include="$(MSBuildThisFileDirectory)addons/*/*.csproj" />
     </ItemGroup>
