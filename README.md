@@ -89,10 +89,47 @@ Saving in Hammer overwrites the `.vmap`; the next export from this tool overwrit
 
 Headless: `Godot_..._console.exe --headless --path . -- --export <layout.json|demo> <out.vmap> [--compile]`
 
+## Plugins
+
+Add-ons live outside the editor as their own assemblies: `plugins/<Name>/<Name>.dll` (next to the executable, or
+in the project folder when running from Godot). The editor loads them at startup; their commands appear in a
+**Tools** menu in the top bar, which stays hidden when no plugin is installed.
+
+A plugin is a plain .NET class library (`addons/<Name>/<Name>.csproj`) that references `Cs2MapProto.csproj` with
+`Private="false"`, builds into `plugins/<Name>/`, and has a public class implementing `Cs2MapProto.Plugins.IEditorPlugin`.
+`IEditorHost` (see `src/Plugins/PluginApi.cs`) gives it:
+
+- the document, the built map, and change / rebuild events;
+- Tools menu entries, a UI root for its windows, and the status bar;
+- `CaptureAsync`: off-screen renders from any camera, with **beauty** (the preview look), **depth** (white near,
+  black far) and **semantic** (flat colour per mesh kind, ADE20K palette, see `CapturePalette`) passes;
+- a per-plugin data folder, and per-layout data saved in the layout file under `"Plugins": {"<id>": ...}`.
+
+Godot only registers script classes from the main assembly, so plugins build their UI in code from stock controls.
+The add-on projects are in `Cs2MapProto.sln`, so building the solution (or pressing Play in Godot) builds them too.
+
+### Concept sketch (`addons/ConceptSketch`)
+
+**Tools > Concept sketch...** picks semi-random viewpoints over the map, such as corridors, junctions, ramps, open
+areas, spawns and an optional top-down overview. It renders each one, writes a prompt for it from the geometry (corridor width,
+walls versus open sky, cover, ramps, nearby spawns) plus your theme, and turns each view into concept art with
+Stable Diffusion 1.5 + a depth ControlNet, so the art keeps the blockout's layout. Prompts can be edited per view
+before generating. Renders, prompts (`manifest.json`) and images go to `<layout>_concepts/<time>/` next to the layout.
+
+Generation runs in Python (`python/concept_sketch.py`, diffusers). The add-on starts it on first use, keeps the
+model loaded and stops it when the editor closes. It can also be used without the editor:
+`python concept_sketch.py serve` (HTTP API, documented in the script) or `python concept_sketch.py run <manifest.json>`.
+Install torch for your CUDA version, then `pip install -r requirements.txt`. The Python executable, port and model ids
+are in `settings.json` in the plugin data folder (`%APPDATA%\Godot\app_userdata\CS2 Map Proto\plugins\concept-sketch`),
+next to `backend.log`.
+
+Test without clicking: `Godot... --path . -- --concept-sketch <outdir> [--no-generate] [--load layout.json]`.
+
 ## Code map
 
 - `src/Model` – the document (JSON-serialisable).
 - `src/Geometry` – `MapBuilder` turns the document into closed meshes (Clipper2 for 2D booleans, hole bridging + ear clipping, convex face merge).
 - `src/Export` – DMX keyvalues2 writer, `.vmap` (CMapRootElement / CMapMesh / half-edge CDmePolygonMesh) exporter, CS2 tool runner.
+- `src/Plugins` – plugin API (`PluginApi.cs`), loader, and `EditorHost` (the editor side of the API).
 - `src/Editor` – Godot nodes: `EditorRoot` (input, tools, undo), `EditorUi` (`[Export]` bindings to the premade controls in `scenes/Main.tscn`, found by unique name), camera, preview, overlay.
 - `ui/` – `editor_theme.tres` (the dark theme, set as the project's custom theme; style variations such as `RailButton`, `SegmentButton`, `Chip`) and the SVG icons.
