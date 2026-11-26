@@ -95,7 +95,7 @@ Add-ons live outside the editor as their own assemblies: `plugins/<Name>/<Name>.
 in the project folder when running from Godot). The editor loads them at startup; their commands appear in a
 **Tools** menu in the top bar, which stays hidden when no plugin is installed.
 
-A plugin is a plain .NET class library (`addons/<Name>/<Name>.csproj`) that references `Cs2MapProto.csproj` with
+A plugin is a plain .NET class library (`addons/<Name>/<Name>.csproj`, usually its own repository added as a submodule) that references `Cs2MapProto.csproj` with
 `Private="false"`, builds into `plugins/<Name>/`, and has a public class implementing `Cs2MapProto.Plugins.IEditorPlugin`.
 `IEditorHost` (see `src/Plugins/PluginApi.cs`) gives it:
 
@@ -106,25 +106,17 @@ A plugin is a plain .NET class library (`addons/<Name>/<Name>.csproj`) that refe
 - a per-plugin data folder, and per-layout data saved in the layout file under `"Plugins": {"<id>": ...}`.
 
 Godot only registers script classes from the main assembly, so plugins build their UI in code from stock controls.
-The add-on projects are in `Cs2MapProto.sln`, so building the solution (or pressing Play in Godot) builds them too.
 
-### Concept sketch (`addons/ConceptSketch`)
+### Add-ons in this repository
 
-**Tools > Concept sketch...** picks semi-random viewpoints over the map, such as corridors, junctions, ramps, open
-areas, spawns and an optional top-down overview. It renders each one, writes a prompt for it from the geometry (corridor width,
-walls versus open sky, cover, ramps, nearby spawns) plus your theme, and turns each view into concept art with
-Stable Diffusion 1.5 + a depth ControlNet, so the art keeps the blockout's layout. Prompts can be edited per view
-before generating. Renders, prompts (`manifest.json`) and images go to `<layout>_concepts/<time>/` next to the layout.
+Add-ons are git submodules under `addons/`; building the solution (or pressing Play in Godot) builds every add-on
+that is checked out, into `plugins/<Name>/`. The editor works without any of them.
 
-Generation runs in Python (`python/concept_sketch.py`, diffusers). The add-on starts it on first use, keeps the
-model loaded and stops it when the editor closes. It can also be used without the editor:
-`python concept_sketch.py serve` (HTTP API, documented in the script) or `python concept_sketch.py run <manifest.json>`.
-One-time setup, with any Python 3.10+: `python addons/ConceptSketch/python/concept_sketch.py setup` creates a private
-venv in the plugin data folder with torch (CUDA 12.8 wheels; `--torch-index` for others) and diffusers, and the add-on
-uses it automatically. The Python executable (to use another one), port and model ids are in `settings.json` in the plugin data folder (`%APPDATA%\Godot\app_userdata\CS2 Map Proto\plugins\concept-sketch`),
-next to `backend.log`.
+| Add-on | Repository | What it does |
+|---|---|---|
+| Concept sketch | [cs2-concept-sketch](https://github.com/basilicon/cs2-concept-sketch) (private) | Renders sampled views of the map and turns them into concept art with Stable Diffusion + ControlNet |
 
-Test without clicking: `Godot... --path . -- --concept-sketch <outdir> [--no-generate] [--load layout.json]`.
+`git submodule update --init` fetches the ones you have access to; without access, the clone just has an empty folder.
 
 ## Code map
 

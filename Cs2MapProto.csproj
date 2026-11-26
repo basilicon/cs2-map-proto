@@ -7,11 +7,26 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Add-ons build as their own assemblies (see addons/README.md), never into the editor. -->
+    <!-- Add-ons build as their own assemblies (see "Plugins" in README.md), never into the editor. -->
     <Compile Remove="addons/**" />
     <None Remove="addons/**" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Clipper2" Version="1.5.4" />
   </ItemGroup>
+
+  <!-- Build whatever add-ons are checked out (addons/<Name>/<Name>.csproj, usually git submodules) after the editor,
+       so Play in Godot picks up their changes. Missing or uninitialised submodules are simply skipped. Their
+       reference back to this project is already built, so it isn't rebuilt (that would recurse). -->
+  <Target Name="BuildAddons" AfterTargets="Build" Condition="'$(BuildingAddon)' != 'true'">
+    <ItemGroup>
+      <AddonProject Include="$(MSBuildThisFileDirectory)addons/*/*.csproj" />
+    </ItemGroup>
+    <PropertyGroup>
+      <AddonProperties>Configuration=$(Configuration);BuildProjectReferences=false;BuildingAddon=true</AddonProperties>
+    </PropertyGroup>
+    <!-- Restore runs as its own evaluation first (a fresh submodule has no assets file yet). -->
+    <MSBuild Projects="@(AddonProject)" Targets="Restore" Properties="$(AddonProperties);MSBuildRestoreSessionId=$([System.Guid]::NewGuid())" Condition="'@(AddonProject)' != ''" />
+    <MSBuild Projects="@(AddonProject)" Targets="Build" Properties="$(AddonProperties)" Condition="'@(AddonProject)' != ''" />
+  </Target>
 </Project>

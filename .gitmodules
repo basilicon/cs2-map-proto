@@ -1,0 +1,4 @@
+[submodule "addons/ConceptSketch"]
+	path = addons/ConceptSketch
+	url = https://github.com/basilicon/cs2-concept-sketch.git
+	branch = main
