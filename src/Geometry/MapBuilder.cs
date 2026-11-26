@@ -52,7 +52,7 @@ public static class MapBuilder
 
         var levels = new SortedDictionary<int, PathsD>(); // floor height -> footprint polygons
         var footprint = new PathsD();                     // every walkable area, for perimeter walls
-        var ramps = new List<(List<Vector2> left, List<Vector2> right, List<float> z)>();
+        var ramps = new List<(List<Vector2> left, List<Vector2> right, List<float> zl, List<float> zr)>();
         bool steep = false;
         var rampSections = new List<(PathD quad, float zMin, float zMax)>(); // ramp footprint pieces with their height range
         float minZ = float.MaxValue, maxZ = float.MinValue;
@@ -139,10 +139,25 @@ public static class MapBuilder
                     foreach (var poly in Poly2.ThickenPolyline(line, hw)) AddLevel(Z(from), poly);
                     return;
                 }
-                // Width varies along the run: union of mitred sections, each with its own end widths.
-                var (left, right) = RibbonEdges(line, widths);
+                // Width varies along the run: one trapezoid per step (square ends, each with its own end widths)
+                // plus a wedge filling the outside of every joint, unioned. Unlike mitred sections this can't
+                // overshoot on the inside of a bend when the width exceeds the step length.
                 for (int q = 0; q + 1 < line.Count; q++)
-                    AddLevel(Z(from), Poly2.Ccw(new[] { right[q], right[q + 1], left[q + 1], left[q] }));
+                {
+                    var d = Vector2.Normalize(line[q + 1] - line[q]);
+                    if (float.IsNaN(d.X)) continue;
+                    var nq = new Vector2(-d.Y, d.X);
+                    AddLevel(Z(from), Poly2.Ccw(new[] { line[q] - nq * widths[q], line[q + 1] - nq * widths[q + 1], line[q + 1] + nq * widths[q + 1], line[q] + nq * widths[q] }));
+                }
+                for (int q = 1; q + 1 < line.Count; q++)
+                {
+                    var p = line[q];
+                    var da = Vector2.Normalize(p - line[q - 1]); var db = Vector2.Normalize(line[q + 1] - p);
+                    if (float.IsNaN(da.X) || float.IsNaN(db.X)) continue;
+                    if (da.X * db.Y - da.Y * db.X is var cr && MathF.Abs(cr) < 1e-4f) continue; // straight: nothing to fill
+                    var na = new Vector2(-da.Y, da.X) * widths[q]; var nb = new Vector2(-db.Y, db.X) * widths[q];
+                    AddLevel(Z(from), cr > 0 ? Poly2.Triangle(p, p - na, p - nb) : Poly2.Triangle(p, p + na, p + nb));
+                }
             }
 
             void EmitRampRun(int from, int to)
@@ -152,6 +167,9 @@ public static class MapBuilder
                 var widths = new List<float>();
                 for (int q = from; q <= to; q++) { center.Add(P(q)); zs.Add(Z(q)); widths.Add(HW(q)); }
                 var (left, right) = RibbonEdges(center, widths);
+                var zl = new List<float>(zs); var zr = new List<float>(zs);
+                RemoveLoops(left, zl);
+                RemoveLoops(right, zr);
                 for (int q = 0; q + 1 < center.Count; q++)
                 {
                     var section = Poly2.Ccw(new[] { right[q], right[q + 1], left[q + 1], left[q] });
@@ -160,7 +178,7 @@ public static class MapBuilder
                     float run = Vector2.Distance(center[q], center[q + 1]);
                     if (run > 0.01f && MathF.Abs(zs[q + 1] - zs[q]) / run > 0.7f) steep = true;
                 }
-                ramps.Add((left, right, zs));
+                ramps.Add((left, right, zl, zr));
                 foreach (var z in zs) { minZ = MathF.Min(minZ, z); maxZ = MathF.Max(maxZ, z); }
             }
         }
@@ -203,10 +221,10 @@ public static class MapBuilder
 
         // ---- Ramps: continuous sloped ribbons (straight or curved).
         n = 0;
-        foreach (var (left, right, zs) in ramps)
+        foreach (var (left, right, zl, zr) in ramps)
         {
             var m = new PolyMesh();
-            Ribbon(m, left, right, zs, thick, s.FloorMaterial);
+            Ribbon(m, left, right, zl, zr, thick, s.FloorMaterial);
             map.Meshes.Add(new BuiltMesh { Name = $"ramp_{n++}", Kind = MeshKind.Ramp, Mesh = m });
         }
         if (steep) map.Warnings.Add("A ramp is steeper than ~35 degrees; players may slide.");
@@ -365,18 +383,51 @@ public static class MapBuilder
         return (left, right);
     }
 
+    /// <summary>Removes self-intersections from one edge of a ribbon. On the inside of a bend that is tighter
+    /// than the half-width (a sharp corner between short segments, a tight curve) the mitred offset points
+    /// overshoot each other and the edge crosses itself; everything between the crossing collapses onto the
+    /// crossing point, which is where the real corridor edge turns. Heights collapse with it.</summary>
+    static void RemoveLoops(List<Vector2> s, List<float> z)
+    {
+        int n = s.Count;
+        for (int a = 0; a + 2 < n; a++)
+            for (int b = n - 2; b >= a + 2; b--)
+            {
+                if (!SegmentIntersect(s[a], s[a + 1], s[b], s[b + 1], out float ua, out float ub)) continue;
+                var x = s[a] + (s[a + 1] - s[a]) * ua;
+                float zx = 0.5f * (z[a] + (z[a + 1] - z[a]) * ua + z[b] + (z[b + 1] - z[b]) * ub);
+                for (int k = a + 1; k <= b; k++) { s[k] = x; z[k] = zx; }
+                a = b - 1;
+                break;
+            }
+    }
+
+    static bool SegmentIntersect(Vector2 p, Vector2 p2, Vector2 q, Vector2 q2, out float u, out float v)
+    {
+        u = v = 0;
+        var r = p2 - p; var sv = q2 - q;
+        float den = r.X * sv.Y - r.Y * sv.X;
+        if (MathF.Abs(den) < 1e-9f) return false;
+        var qp = q - p;
+        u = (qp.X * sv.Y - qp.Y * sv.X) / den;
+        v = (qp.X * r.Y - qp.Y * r.X) / den;
+        return u > 1e-4f && u < 1 - 1e-4f && v > 1e-4f && v < 1 - 1e-4f;
+    }
+
     /// <summary>Closed slab along a ribbon: top follows the per-section heights, bottom is thick below.
     /// Non-planar top quads (curved ramps) are split into triangles so every Hammer face is planar.</summary>
-    static void Ribbon(PolyMesh mesh, List<Vector2> left, List<Vector2> right, List<float> z, float thick, string material)
+    static void Ribbon(PolyMesh mesh, List<Vector2> left, List<Vector2> right, List<float> zl, List<float> zr, float thick, string material)
     {
         int n = left.Count;
-        Vector3 Tp(Vector2 p, int i) => new(p, z[i]);
-        Vector3 Bp(Vector2 p, int i) => new(p, z[i] - thick);
+        // Points are identified by index: 0..n-1 on the right edge, n..2n-1 on the left (each edge has its own heights).
+        float Zk(int k) => k < n ? zr[k] : zl[k - n];
+        Vector3 Tp(Vector2 p, int k) => new(p, Zk(k));
+        Vector3 Bp(Vector2 p, int k) => new(p, Zk(k) - thick);
 
         for (int i = 0; i + 1 < n; i++)
         {
-            var top = new[] { Tp(right[i], i), Tp(right[i + 1], i + 1), Tp(left[i + 1], i + 1), Tp(left[i], i) };
-            var bot = new[] { Bp(right[i], i), Bp(right[i + 1], i + 1), Bp(left[i + 1], i + 1), Bp(left[i], i) };
+            var top = new[] { Tp(right[i], i), Tp(right[i + 1], i + 1), Tp(left[i + 1], n + i + 1), Tp(left[i], n + i) };
+            var bot = new[] { Bp(right[i], i), Bp(right[i + 1], i + 1), Bp(left[i + 1], n + i + 1), Bp(left[i], n + i) };
             var ti = top.Select(mesh.AddVertex).ToArray();
             var bi = bot.Select(mesh.AddVertex).ToArray();
             if (IsPlanar(top))
@@ -396,7 +447,7 @@ public static class MapBuilder
         // Outline counter-clockwise from above: along the right edge, back along the left edge.
         var outline = new List<(Vector2 p, int i)>();
         for (int i = 0; i < n; i++) outline.Add((right[i], i));
-        for (int i = n - 1; i >= 0; i--) outline.Add((left[i], i));
+        for (int i = n - 1; i >= 0; i--) outline.Add((left[i], n + i));
         for (int k = 0; k < outline.Count; k++)
         {
             var (pa, ia) = outline[k];
