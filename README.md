@@ -88,24 +88,17 @@ Saving in Hammer overwrites the `.vmap`; the next export from this tool overwrit
 - **Compile after export** runs `resourcecompiler -world -phys -fshallow` (no lighting bake, a few seconds). Then launch CS2 with Workshop Tools for that addon and run `map <name>`.
 
 Headless: `Godot_..._console.exe --headless --path . -- --export <layout.json|demo> <out.vmap> [--compile]`
+(more in [docs/tooling.md](docs/tooling.md)).
 
 ## Plugins
 
-Add-ons live outside the editor as their own assemblies: `plugins/<Name>/<Name>.dll` (next to the executable, or
-in the project folder when running from Godot). The editor loads them at startup; their commands appear in a
-**Tools** menu in the top bar, which stays hidden when no plugin is installed.
+Add-ons live outside the editor as their own assemblies (`plugins/<Name>/<Name>.dll`) and are loaded at startup.
+Their commands appear in a **Tools** menu in the top bar, which stays hidden when no plugin is installed. They can
+read the layout, render it off screen (preview, depth and semantic passes from any camera), and keep their own data
+in the layout file.
 
-A plugin is a plain .NET class library (`addons/<Name>/<Name>.csproj`, usually its own repository added as a submodule) that references `Cs2MapProto.csproj` with
-`Private="false"`, builds into `plugins/<Name>/`, and has a public class implementing `Cs2MapProto.Plugins.IEditorPlugin`.
-`IEditorHost` (see `src/Plugins/PluginApi.cs`) gives it:
-
-- the document, the built map, and change / rebuild events;
-- Tools menu entries, a UI root for its windows, and the status bar;
-- `CaptureAsync`: off-screen renders from any camera, with **beauty** (the preview look), **depth** (white near,
-  black far) and **semantic** (flat colour per mesh kind, ADE20K palette, see `CapturePalette`) passes;
-- a per-plugin data folder, and per-layout data saved in the layout file under `"Plugins": {"<id>": ...}`.
-
-Godot only registers script classes from the main assembly, so plugins build their UI in code from stock controls.
+- [docs/plugins.md](docs/plugins.md): writing a plugin, the API, off-screen capture, data, UI, shipping.
+- [docs/tooling.md](docs/tooling.md): command-line export, screenshots, and testing plugins without the UI.
 
 ### Add-ons in this repository
 
