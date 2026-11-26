@@ -252,7 +252,9 @@ public static class MapBuilder
         int n = 0;
         foreach (var (z, polys) in levels)
         {
-            var area = Poly2.Union(polys);
+            // Closing seals hairline cracks where neighbouring pieces (segment quads, corner fills) miss each
+            // other by float error; left open they become zero-width slits in the floor and spikes in the walls.
+            var area = Poly2.Close(Poly2.Union(polys));
             var cut = new PathsD();
             // Where a ramp passes within player height of this floor, the ramp is the floor: cut it out.
             // Otherwise end caps / branch ends that reach over a ramp leave flat slabs hanging above or
@@ -323,8 +325,11 @@ public static class MapBuilder
         // ---- Perimeter walls around everything walkable.
         if (s.PerimeterWalls && footprint.Count > 0)
         {
-            // Curves flatten into many tiny segments; a 1u simplification keeps walls light without visible change.
-            var all = Clipper.SimplifyPaths(Poly2.Union(footprint), 1.0);
+            // Curves flatten into many tiny segments; simplifying keeps walls light without visible change.
+            // Ramer-Douglas-Peucker keeps every point within the tolerance of the true outline. (Clipper's
+            // SimplifyPaths drops points one by one against their current neighbours, so along a dense curve
+            // the error adds up and the walls could cut well into the floor.)
+            var all = Clipper.RamerDouglasPeucker(Poly2.Close(Poly2.Union(footprint)), 0.5);
             // Closing merges places where the ring touches itself at a single corner (a pinch), which would
             // otherwise give vertical edges shared by four faces - not representable in Hammer's mesh format.
             var ring = Poly2.Close(Poly2.Difference(Poly2.Inflate(all, s.WallThickness), all));
