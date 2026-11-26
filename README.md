@@ -100,17 +100,6 @@ in the layout file.
 - [docs/plugins.md](docs/plugins.md): writing a plugin, the API, off-screen capture, data, UI, shipping.
 - [docs/tooling.md](docs/tooling.md): command-line export, screenshots, and testing plugins without the UI.
 
-### Add-ons in this repository
-
-Add-ons are git submodules under `addons/`; building the solution (or pressing Play in Godot) builds every add-on
-that is checked out, into `plugins/<Name>/`. The editor works without any of them.
-
-| Add-on | Repository | What it does |
-|---|---|---|
-| Concept sketch | [cs2-concept-sketch](https://github.com/basilicon/cs2-concept-sketch) (private) | Renders sampled views of the map and turns them into concept art with Stable Diffusion + ControlNet |
-
-`git submodule update --init` fetches the ones you have access to; without access, the clone just has an empty folder.
-
 ## Code map
 
 - `src/Model` – the document (JSON-serialisable).
