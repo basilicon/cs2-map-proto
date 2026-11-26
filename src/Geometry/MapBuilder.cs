@@ -82,6 +82,9 @@ public static class MapBuilder
             float startDepth = MathF.Max(0f, path.StartDepth ?? hw);
             float endDepth = MathF.Max(0f, path.EndDepth ?? hw);
             int m = samples.Count;
+            // Free flat ends take the end point's corner style: how far the cap's corners are bevelled / rounded.
+            float startCapR = CapRadius(path.CornerAt(0), HW(0), startDepth);
+            float endCapR = CapRadius(path.CornerAt(path.Points.Count - 1), HW(m - 1), endDepth);
             Vector2 P(int i) => new(samples[i].P.X, samples[i].P.Y);
             float Z(int i) => samples[i].P.Z;
             bool Flat(int seg) => MathF.Abs(Z(seg + 1) - Z(seg)) < FlatEpsilon;
@@ -123,9 +126,12 @@ public static class MapBuilder
                         wedge.Insert(0, P(i));
                         res.Add(Poly2.Ccw(wedge));
                     }
+                    // Only the straight part of the end extension: a bevelled / rounded cap is all end wall.
                     void EndStrip(int end, int step, float depth, bool flat)
                     {
                         if (!flat || depth <= 0.5f) return;
+                        depth -= end == 0 ? startCapR : endCapR;
+                        if (depth <= 0.5f) return;
                         var d = EndDir(end, step);
                         if (d == Vector2.Zero) return;
                         var nrm = new Vector2(-d.Y, d.X) * side * (step > 0 ? -1f : 1f); // d points away from the path
@@ -178,12 +184,14 @@ public static class MapBuilder
                 var line = new List<Vector2>();
                 var widths = new List<float>();
                 var corners = new List<CornerStyle>();
-                // Free flat ends are extended by half the width (a square end), so dead ends and T-junctions
-                // overlap neatly. Extending the line itself (rather than adding a separate cap shape) keeps the
-                // end in one piece with the corridor, so there's no seam or wedge gap between them.
-                if (from == 0 && startDepth > 0.5f && EndDir(0, +1) is var d0 && d0 != Vector2.Zero) { line.Add(P(0) + d0 * startDepth); widths.Add(HW(0)); corners.Add(CornerStyle.Sharp); }
+                // Free flat ends are extended by their depth, so dead ends and T-junctions overlap neatly.
+                // Extending the line itself (rather than adding a separate cap shape) keeps the end in one piece
+                // with the corridor, so there's no seam or wedge gap between them; the extension step is then
+                // built as a cap shaped by the end point's corner style.
+                bool capStart = false, capEnd = false;
+                if (from == 0 && startDepth > 0.5f && EndDir(0, +1) is var d0 && d0 != Vector2.Zero) { line.Add(P(0) + d0 * startDepth); widths.Add(HW(0)); corners.Add(CornerStyle.Sharp); capStart = true; }
                 for (int q = from; q <= to; q++) { line.Add(P(q)); widths.Add(HW(q)); corners.Add(Corner(q)); }
-                if (to == m - 1 && endDepth > 0.5f && EndDir(m - 1, -1) is var d1 && d1 != Vector2.Zero) { line.Add(P(m - 1) + d1 * endDepth); widths.Add(HW(m - 1)); corners.Add(CornerStyle.Sharp); }
+                if (to == m - 1 && endDepth > 0.5f && EndDir(m - 1, -1) is var d1 && d1 != Vector2.Zero) { line.Add(P(m - 1) + d1 * endDepth); widths.Add(HW(m - 1)); corners.Add(CornerStyle.Sharp); capEnd = true; }
                 // One trapezoid per step (square ends, each with its own end widths) plus the chosen corner shape
                 // filling the outside of every joint, unioned. Unlike mitred sections this can't overshoot on the
                 // inside of a bend when the width exceeds the step length.
@@ -192,6 +200,8 @@ public static class MapBuilder
                     var d = Vector2.Normalize(line[q + 1] - line[q]);
                     if (float.IsNaN(d.X)) continue;
                     var nq = new Vector2(-d.Y, d.X);
+                    if (q == 0 && capStart && startCapR > 0.5f) { AddLevel(Z(from), Cap(line[1], -d, widths[1], startDepth, startCapR, path.CornerAt(0))); continue; }
+                    if (q == line.Count - 2 && capEnd && endCapR > 0.5f) { AddLevel(Z(from), Cap(line[q], d, widths[q], endDepth, endCapR, path.CornerAt(path.Points.Count - 1))); continue; }
                     AddLevel(Z(from), Poly2.Ccw(new[] { line[q] - nq * widths[q], line[q + 1] - nq * widths[q + 1], line[q + 1] + nq * widths[q + 1], line[q] + nq * widths[q] }));
                 }
                 for (int q = 1; q + 1 < line.Count; q++)
@@ -405,6 +415,43 @@ public static class MapBuilder
 
     const float MiterLimit = 4f;     // sharp corners whose miter would reach further than this many half-widths get bevelled
     const float RoundStepDeg = 15f;  // arc resolution of rounded corners
+
+    /// <summary>How far a free end's corners are cut back, limited by the end depth. Round: up to the half-width,
+    /// so the default depth (half the width) gives a semicircle. Bevel: up to half the half-width, so the end
+    /// keeps a flat face instead of coming to a point. 0 for a square (sharp) end.</summary>
+    static float CapRadius(CornerStyle style, float hw, float depth) => style switch
+    {
+        CornerStyle.Round => MathF.Min(hw, depth),
+        CornerStyle.Bevel => MathF.Min(hw * 0.5f, depth),
+        _ => 0f,
+    };
+
+    /// <summary>End cap from the end point p running out along dir by depth, hw to each side, with both outer
+    /// corners bevelled or rounded by r. Its base edge (p ± normal * hw) matches the corridor's.</summary>
+    static PathD Cap(Vector2 p, Vector2 dir, float hw, float depth, float r, CornerStyle style)
+    {
+        var n = new Vector2(-dir.Y, dir.X);
+        var pts = new List<Vector2> { p - n * hw, p - n * hw + dir * (depth - r) };
+        void Corner(Vector2 center, Vector2 from, Vector2 to)
+        {
+            if (style == CornerStyle.Round)
+            {
+                int steps = Math.Max(2, (int)MathF.Ceiling(90f / RoundStepDeg));
+                for (int k = 1; k < steps; k++)
+                {
+                    float a = MathF.PI / 2 * k / steps;
+                    pts.Add(center + (from * MathF.Cos(a) + to * MathF.Sin(a)) * r);
+                }
+            }
+        }
+        Corner(p - n * (hw - r) + dir * (depth - r), -n, dir);
+        pts.Add(p - n * (hw - r) + dir * depth);
+        if (hw - r > 0.01f) pts.Add(p + n * (hw - r) + dir * depth);
+        Corner(p + n * (hw - r) + dir * (depth - r), dir, n);
+        pts.Add(p + n * hw + dir * (depth - r));
+        pts.Add(p + n * hw);
+        return Poly2.Ccw(pts.Where((v, i) => i == 0 || Vector2.DistanceSquared(v, pts[i - 1]) > 1e-4f));
+    }
 
     /// <summary>Points of the outer edge around a joint, from the incoming segment's offset (p + na) to the
     /// outgoing one's (p + nb), for the given style. na/nb are the outward normals scaled by the half-width.</summary>

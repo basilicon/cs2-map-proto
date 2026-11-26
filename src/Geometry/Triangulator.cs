@@ -107,11 +107,13 @@ public static class Triangulator
             var P = pts[poly[pk]];
 
             // Any outer vertex inside triangle (M, I, P) would block the bridge; take the one with the smallest angle.
+            // When the ray hits P itself the triangle is degenerate and P is visible: skip the search (a flat
+            // triangle would count every vertex on the ray's line as inside, even ones left of M).
             float bestAngle = float.MaxValue, bestDist = float.MaxValue;
-            for (int k = 0; k < poly.Count; k++)
+            for (int k = 0; k < poly.Count && Vector2.DistanceSquared(I, P) > 1e-6f; k++)
             {
                 var v = pts[poly[k]];
-                if (k == pk || v == P) continue;
+                if (k == pk || v == P || v.X < M.X) continue;
                 if (!InTriangle(v, M, I, P)) continue;
                 float ang = MathF.Abs(MathF.Atan2(v.Y - M.Y, v.X - M.X));
                 float dist = Vector2.DistanceSquared(v, M);
