@@ -480,7 +480,7 @@
       "ControlScale": 1.0,
       "SegScale": 0.5,
       "PerView": 1,
-      "TextureViews": 16,
+      "TextureViews": 32,
       "TexelSize": 0
     }
   }
