@@ -24,10 +24,10 @@ window/size/viewport_height=900
 
 project/assembly_name="Cs2MapProto"
 
-[rendering]
-
-anti_aliasing/quality/msaa_3d=2
-
 [gui]
 
 theme/custom="res://ui/editor_theme.tres"
+
+[rendering]
+
+anti_aliasing/quality/msaa_3d=2
