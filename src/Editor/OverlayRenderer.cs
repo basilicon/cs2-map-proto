@@ -18,6 +18,7 @@ public partial class OverlayRenderer : Node3D
     static readonly Color ObstacleColor = new(1f, 0.6f, 0.3f);
     static readonly Color PitColor = new(0.85f, 0.4f, 0.9f);
     static readonly Color CeilingColor = new(0.7f, 0.62f, 0.95f);
+    static readonly Color AreaColor = new(0.35f, 0.85f, 0.95f);
     static readonly Color SelectedColor = new(1f, 1f, 0.2f);
     static readonly Color HoverColor = new(1f, 1f, 1f);
     static readonly Color DraftColor = new(1f, 0.95f, 0.4f);
@@ -62,7 +63,7 @@ public partial class OverlayRenderer : Node3D
 
     static Color RegionColor(RegionKind k) => k switch
     {
-        RegionKind.Floor => FloorColor, RegionKind.Obstacle => ObstacleColor, RegionKind.Ceiling => CeilingColor, _ => PitColor,
+        RegionKind.Floor => FloorColor, RegionKind.Obstacle => ObstacleColor, RegionKind.Ceiling => CeilingColor, RegionKind.Area => AreaColor, _ => PitColor,
     };
 
     public void Draw(EditorRoot ed)
@@ -87,11 +88,17 @@ public partial class OverlayRenderer : Node3D
             var r = doc.Regions[s];
             bool sel = ed.SelectedRegion == s;
             var col = sel ? SelectedColor : Faded(ed, RegionColor(r.Kind), r.Elevation);
-            float top = r.Kind is RegionKind.Obstacle or RegionKind.Ceiling ? r.Elevation + r.Height : r.Elevation;
+            float top = r.Kind is RegionKind.Obstacle or RegionKind.Ceiling or RegionKind.Area ? r.Elevation + r.Height : r.Elevation;
             for (int i = 0; i < r.Points.Count; i++)
             {
                 var a = r.Points[i]; var b = r.Points[(i + 1) % r.Points.Count];
                 Line(new Vec3(a.X, a.Y, top + 1), new Vec3(b.X, b.Y, top + 1), col);
+                if (r.Kind == RegionKind.Area)
+                {
+                    // An area is a volume with nothing built to show it: draw its floor outline and corner posts too.
+                    Line(new Vec3(a.X, a.Y, r.Elevation + 1), new Vec3(b.X, b.Y, r.Elevation + 1), col);
+                    Line(new Vec3(a.X, a.Y, r.Elevation + 1), new Vec3(a.X, a.Y, top + 1), col);
+                }
             }
         }
 

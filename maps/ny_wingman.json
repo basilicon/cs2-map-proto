@@ -3,6 +3,7 @@
   "GridSize": 16,
   "Paths": [
     {
+      "Id": "1fa29c4a-e39e-4cca-9813-0771e8239f0e",
       "Points": [
         [
           -288,
@@ -28,6 +29,7 @@
       "Width": 288
     },
     {
+      "Id": "2bc0545e-ad73-4d7c-9005-4599087d13d7",
       "Points": [
         [
           -864,
@@ -48,6 +50,7 @@
       "Width": 224
     },
     {
+      "Id": "82f7eafc-4eef-4d99-b2bd-76fa16084fd7",
       "Points": [
         [
           224,
@@ -68,6 +71,7 @@
       "Width": 192
     },
     {
+      "Id": "02f79a93-8781-4ccd-898c-b27a74f45c49",
       "Points": [
         [
           224,
@@ -94,6 +98,7 @@
       "CeilingHeight": 144
     },
     {
+      "Id": "c045473f-61f9-46b7-8a80-09e7cbcf0163",
       "Points": [
         [
           656,
@@ -116,6 +121,7 @@
   ],
   "Regions": [
     {
+      "Id": "0b7d1a84-4f9c-4566-8bf8-de6f1b88a862",
       "Kind": "Floor",
       "Points": [
         [
@@ -143,6 +149,7 @@
       "Height": 128
     },
     {
+      "Id": "04c65b7c-2c83-4270-a99d-a57c7e9286af",
       "Kind": "Floor",
       "Points": [
         [
@@ -170,6 +177,7 @@
       "Height": 128
     },
     {
+      "Id": "45fe4bb6-1390-42a3-8858-70f2cc61ee8b",
       "Kind": "Floor",
       "Points": [
         [
@@ -197,6 +205,7 @@
       "Height": 128
     },
     {
+      "Id": "c6f52ef1-a0ec-4906-b9d9-0a7b62354e00",
       "Kind": "Obstacle",
       "Points": [
         [
@@ -224,6 +233,7 @@
       "Height": 96
     },
     {
+      "Id": "14e92a6e-f1d8-4a7b-869e-59ee9aac6a30",
       "Kind": "Obstacle",
       "Points": [
         [
@@ -251,6 +261,7 @@
       "Height": 128
     },
     {
+      "Id": "cc16d0e2-0c08-42df-b4a4-21b68a2d19e2",
       "Kind": "Obstacle",
       "Points": [
         [
@@ -278,6 +289,7 @@
       "Height": 56
     },
     {
+      "Id": "72fe6604-a7e7-406d-ba09-4d5be313f1ba",
       "Kind": "Pit",
       "Points": [
         [
@@ -305,6 +317,7 @@
       "Height": 128
     },
     {
+      "Id": "697f6ebd-b23d-41a0-9950-799d9ae1c2d6",
       "Kind": "Obstacle",
       "Points": [
         [
@@ -332,6 +345,7 @@
       "Height": 64
     },
     {
+      "Id": "dd829e34-3916-406c-ba34-8766bf2a54ea",
       "Kind": "Obstacle",
       "Points": [
         [
@@ -359,6 +373,7 @@
       "Height": 72
     },
     {
+      "Id": "ecad8e99-3d3a-49b4-b275-c2e412711b47",
       "Kind": "Ceiling",
       "Points": [
         [
@@ -384,10 +399,39 @@
       ],
       "Elevation": 0,
       "Height": 160
+    },
+    {
+      "Id": "2a0e0e17-10cf-4c67-bcd7-8150494361de",
+      "Kind": "Area",
+      "Points": [
+        [
+          0,
+          496,
+          0
+        ],
+        [
+          400,
+          496,
+          0
+        ],
+        [
+          400,
+          680,
+          0
+        ],
+        [
+          0,
+          680,
+          0
+        ]
+      ],
+      "Elevation": 0,
+      "Height": 192
     }
   ],
   "Spawns": [
     {
+      "Id": "4c4ffa54-9196-4a24-a2e7-37b8600d1c27",
       "Team": "T",
       "Position": [
         -240,
@@ -397,6 +441,7 @@
       "Yaw": 90
     },
     {
+      "Id": "5b56de97-c8dd-448b-88d8-bad03b744983",
       "Team": "T",
       "Position": [
         -80,
@@ -406,6 +451,7 @@
       "Yaw": 90
     },
     {
+      "Id": "39137715-d5ed-4272-a9b9-bb24e15d3351",
       "Team": "T",
       "Position": [
         80,
@@ -415,6 +461,7 @@
       "Yaw": 90
     },
     {
+      "Id": "9ded116d-bd29-432d-afa4-7c39e75292c1",
       "Team": "T",
       "Position": [
         240,
@@ -424,6 +471,7 @@
       "Yaw": 90
     },
     {
+      "Id": "e6b38d2a-aef3-4644-bb50-d4fc6c784ff3",
       "Team": "CT",
       "Position": [
         384,
@@ -433,6 +481,7 @@
       "Yaw": 270
     },
     {
+      "Id": "c92e0fef-c021-4554-adc2-1ea104427e7d",
       "Team": "CT",
       "Position": [
         528,
@@ -442,6 +491,7 @@
       "Yaw": 270
     },
     {
+      "Id": "40ba44e4-af0d-4b76-9ccb-807326db1e5a",
       "Team": "CT",
       "Position": [
         672,
@@ -451,6 +501,7 @@
       "Yaw": 270
     },
     {
+      "Id": "a5a721af-4b0c-44e6-a074-7efde8d164f1",
       "Team": "CT",
       "Position": [
         816,
@@ -481,7 +532,24 @@
       "SegScale": 0.5,
       "PerView": 1,
       "TextureViews": 32,
-      "TexelSize": 0
+      "TexelSize": 0,
+      "Labels": {
+        "1fa29c4a-e39e-4cca-9813-0771e8239f0e": "Manhattan avenue, shop fronts, asphalt street with lane markings",
+        "2bc0545e-ad73-4d7c-9005-4599087d13d7": "narrow back alley, fire escapes, graffiti",
+        "82f7eafc-4eef-4d99-b2bd-76fa16084fd7": "subway station stairs, white tiled walls",
+        "02f79a93-8781-4ccd-898c-b27a74f45c49": "subway station tunnel, white ceramic tiles, fluorescent lights",
+        "c045473f-61f9-46b7-8a80-09e7cbcf0163": "subway station stairs, white tiled walls",
+        "0b7d1a84-4f9c-4566-8bf8-de6f1b88a862": "loading dock yard",
+        "04c65b7c-2c83-4270-a99d-a57c7e9286af": "public plaza, granite pavers",
+        "45fe4bb6-1390-42a3-8858-70f2cc61ee8b": "fire station yard, red brick firehouse",
+        "c6f52ef1-a0ec-4906-b9d9-0a7b62354e00": "green metal newsstand kiosk with magazines",
+        "14e92a6e-f1d8-4a7b-869e-59ee9aac6a30": "green metal dumpster",
+        "cc16d0e2-0c08-42df-b4a4-21b68a2d19e2": "stack of wooden pallets",
+        "72fe6604-a7e7-406d-ba09-4d5be313f1ba": "construction pit, exposed dirt and concrete",
+        "697f6ebd-b23d-41a0-9950-799d9ae1c2d6": "parked yellow taxi cab",
+        "ecad8e99-3d3a-49b4-b275-c2e412711b47": "scaffolding sidewalk shed, green plywood",
+        "2a0e0e17-10cf-4c67-bcd7-8150494361de": "outdoor fruit market stalls with striped awnings"
+      }
     }
   }
 }

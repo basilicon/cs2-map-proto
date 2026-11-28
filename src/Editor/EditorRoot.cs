@@ -43,6 +43,8 @@ public partial class EditorRoot : Node3D
 
     /// <summary>For plugins (via EditorHost): the document was edited or replaced / the build was refreshed.</summary>
     public event Action DocumentChanged, Rebuilt;
+    /// <summary>RefreshSelectionUi ran: the selection or its properties changed.</summary>
+    public event Action SelectionChanged;
     List<Plugins.IEditorPlugin> _plugins = new();
 
     /// <summary>Path whose curve handles are shown (selected path, point or tangent), or -1.</summary>
@@ -461,7 +463,7 @@ public partial class EditorRoot : Node3D
         for (int s = 0; s < Doc.Regions.Count; s++)
         {
             var r = Doc.Regions[s];
-            float top = r.Kind is Model.RegionKind.Obstacle or Model.RegionKind.Ceiling ? r.Elevation + r.Height : r.Elevation;
+            float top = r.Kind is Model.RegionKind.Obstacle or Model.RegionKind.Ceiling or Model.RegionKind.Area ? r.Elevation + r.Height : r.Elevation;
             for (int i = 0; i < r.Points.Count; i++)
             {
                 var a = r.Points[i]; var b = r.Points[(i + 1) % r.Points.Count];
@@ -1047,7 +1049,7 @@ public partial class EditorRoot : Node3D
                 case HandleType.RegionPoint:
                 {
                     var r = Doc.Regions[Selected.Shape];
-                    var tool = r.Kind switch { Model.RegionKind.Floor => Tool.Floor, Model.RegionKind.Obstacle => Tool.Obstacle, Model.RegionKind.Ceiling => Tool.Ceiling, _ => Tool.Pit };
+                    var tool = r.Kind switch { Model.RegionKind.Floor => Tool.Floor, Model.RegionKind.Obstacle => Tool.Obstacle, Model.RegionKind.Ceiling => Tool.Ceiling, Model.RegionKind.Area => Tool.Floor, _ => Tool.Pit };
                     Ui.SetSelectionHeader(tool, $"{r.Kind} {Selected.Shape}",
                         Selected.IsWhole ? $"Whole shape · {r.Points.Count} points" : $"Point {Selected.Point} of {r.Points.Count - 1}");
                     Ui.PropsSection.Title = r.Kind.ToString();
@@ -1081,6 +1083,7 @@ public partial class EditorRoot : Node3D
         });
         Ui.SetPathWallsEnabled(Doc.Build.PerimeterWalls);
         RefreshProfileUi();
+        SelectionChanged?.Invoke();
     }
 
     static bool IsEndpoint(PathShape p, int i) => i == 0 || i == p.Points.Count - 1;
@@ -1197,9 +1200,12 @@ public partial class EditorRoot : Node3D
                 break;
             case HandleType.RegionPoint:
                 var r = Doc.Regions[Selected.Shape];
-                r.Kind = (Model.RegionKind)Ui.RegionKind.Selected;
+                var kind = (Model.RegionKind)Ui.RegionKind.Selected;
                 r.Elevation = (float)Ui.PointZ.Value;
                 r.Height = (float)Ui.RegionHeight.Value;
+                // A floor has no height of its own; one turned into an area gets a full storey.
+                if (kind == Model.RegionKind.Area && r.Kind != kind && r.Height < 1) r.Height = Doc.Build.WallHeight;
+                r.Kind = kind;
                 break;
             case HandleType.Spawn:
                 var s = Doc.Spawns[Selected.Shape];

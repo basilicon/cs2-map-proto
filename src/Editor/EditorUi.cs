@@ -208,6 +208,7 @@ public partial class EditorUi : Control
             RegionKind.AddItem("Obstacle", 1);
             RegionKind.AddItem("Pit", 2);
             RegionKind.AddItem("Ceiling", 3);
+            RegionKind.AddItem("Area (builds nothing)", 4);
         }
 
         foreach (var s in new[] { PathWidth, EndpointDepth, PointZ, RegionHeight, SpawnYaw, WallLeftHeight, WallRightHeight, PathCeilingHeight })

@@ -22,6 +22,7 @@ public sealed class EditorHost : IEditorHost
         _capture = capture;
         root.DocumentChanged += () => DocumentChanged?.Invoke();
         root.Rebuilt += () => Rebuilt?.Invoke();
+        root.SelectionChanged += () => SelectionChanged?.Invoke();
     }
 
     public MapDocument Document => _root.Doc;
@@ -29,12 +30,43 @@ public sealed class EditorHost : IEditorHost
     public string DocumentPath => _root.DocPath;
     public event Action DocumentChanged;
     public event Action Rebuilt;
+    public event Action SelectionChanged;
     public Node UiRoot => _root.Ui;
 
     public void AddMenuItem(string label, Action onPressed) => _root.Ui.AddToolsItem(label, onPressed);
     public void SetStatus(string text) => _root.Ui.SetStatus(text);
     public void SetPreviewOverride(Mesh main, Mesh ceilings = null) => _root.Preview.SetOverride(main, ceilings);
     public Task<CaptureResult> CaptureAsync(CaptureRequest request) => _capture.CaptureAsync(request);
+
+    public EditorSelection Selection
+    {
+        get
+        {
+            var h = _root.Selected;
+            var d = Document;
+            return h.Type switch
+            {
+                HandleType.PathPoint or HandleType.TangentOut or HandleType.TangentIn when h.Shape < d.Paths.Count =>
+                    new EditorSelection(SelectionKind.Path, d.Paths[h.Shape].Id, h.Shape, h.IsWhole),
+                HandleType.RegionPoint when h.Shape < d.Regions.Count =>
+                    new EditorSelection(SelectionKind.Region, d.Regions[h.Shape].Id, h.Shape, h.IsWhole),
+                HandleType.Spawn when h.Shape < d.Spawns.Count =>
+                    new EditorSelection(SelectionKind.Spawn, d.Spawns[h.Shape].Id, h.Shape, true),
+                _ => EditorSelection.None,
+            };
+        }
+    }
+
+    int _sections;
+
+    public void AddInspectorSection(Control section)
+    {
+        // Under the properties section, after any sections added before.
+        var anchor = _root.Ui.PropsSection;
+        var parent = anchor.GetParent();
+        parent.AddChild(section);
+        parent.MoveChild(section, anchor.GetIndex() + 1 + _sections++);
+    }
 
     public string PluginDataDir(string pluginId)
     {

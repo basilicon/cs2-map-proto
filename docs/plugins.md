@@ -147,6 +147,12 @@ menu stays hidden until a plugin adds an item.) The output panel shows `Plugin l
 | `string PluginDataDir(string pluginId)` | A folder for machine-local files (settings, caches, logs, venvs), created on demand: `user://plugins/<id>/`, which on Windows is `%APPDATA%\Godot\app_userdata\CS2 Map Proto\plugins\<id>\`. |
 | `T GetDocumentData<T>(string pluginId)` | Reads this plugin's data from the layout, or null if there is none. |
 | `void SetDocumentData<T>(string pluginId, T value)` | Writes this plugin's data into the layout and marks it unsaved (only if it changed). `null` removes it. |
+| `EditorSelection Selection` | What's selected: `Kind` (`None`, `Path`, `Region`, `Spawn`), the shape's `Id`, its `Index` in the document's list, and `Whole` (false when only one point or curve handle is selected). Key per-shape plugin data by `Id`: it survives reordering, undo and saving. |
+| `event Action SelectionChanged` | The selection, or the selected shape's properties, changed. Fires often while editing, so compare `Selection.Id` before resetting your own controls. |
+| `void AddInspectorSection(Control section)` | Adds your control to the inspector, below the selection's properties (a `FoldableContainer` matches the built-in sections). Show and hide it yourself, typically on `SelectionChanged`. |
+
+Regions of kind `Area` build nothing: they only mark a volume (polygon, `Elevation` up by `Height`), for plugins to
+attach meaning to. Users make one by drawing any region and switching its kind to Area.
 
 Coordinates in the document, `BuiltMap` and capture requests are **Hammer units with Hammer axes** (X east, Y north,
 Z up), as `System.Numerics.Vector3` or the model's `Vec3`. Godot's own space (Y up) only matters if you add nodes

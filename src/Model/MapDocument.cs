@@ -127,6 +127,9 @@ public enum RegionKind
     Pit,
     /// <summary>Roof slab over the floor at Elevation. Height = clearance from that floor to the slab's underside.</summary>
     Ceiling,
+    /// <summary>Builds nothing: marks the space from Elevation up by Height, e.g. for plugins to attach meaning to
+    /// ("subway", "market") or as a planning note.</summary>
+    Area,
 }
 
 /// <summary>A closed flat polygon at one elevation. Points' Z is ignored; Elevation applies to all.</summary>

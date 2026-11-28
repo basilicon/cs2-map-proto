@@ -58,6 +58,24 @@ public interface IEditorHost
     T GetDocumentData<T>(string pluginId) where T : class;
     /// <summary>Stores plugin data in the layout and marks it unsaved. null removes the entry.</summary>
     void SetDocumentData<T>(string pluginId, T value) where T : class;
+
+    /// <summary>What's selected in the editor. Shapes are identified by their Id, which survives reordering and
+    /// saving, so it's the key to store per-shape plugin data under.</summary>
+    EditorSelection Selection { get; }
+    /// <summary>The selection, or the selected shape's properties, changed (fires often while editing).</summary>
+    event Action SelectionChanged;
+    /// <summary>Adds a control to the inspector, below the selection's properties. It stays where it is; the plugin
+    /// shows and hides it, typically on SelectionChanged.</summary>
+    void AddInspectorSection(Control section);
+}
+
+public enum SelectionKind { None, Path, Region, Spawn }
+
+/// <summary>A selected shape: its kind, Id and index in the document's list. Whole is false when a single point
+/// (or curve handle) of it is selected.</summary>
+public readonly record struct EditorSelection(SelectionKind Kind, Guid Id, int Index, bool Whole)
+{
+    public static readonly EditorSelection None = new(SelectionKind.None, Guid.Empty, -1, false);
 }
 
 [Flags]
